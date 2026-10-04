@@ -30,6 +30,7 @@ export interface Database {
           tags: string[]
           avatar_url: string | null
           email_verified: boolean
+          profile_searchable: boolean
           experiences_count: number
           comments_count: number
           reactions_received: number
@@ -48,6 +49,7 @@ export interface Database {
           tags?: string[]
           avatar_url?: string | null
           email_verified?: boolean
+          profile_searchable?: boolean
           experiences_count?: number
           comments_count?: number
           reactions_received?: number
@@ -66,6 +68,7 @@ export interface Database {
           tags?: string[]
           avatar_url?: string | null
           email_verified?: boolean
+          profile_searchable?: boolean
           experiences_count?: number
           comments_count?: number
           reactions_received?: number
@@ -432,11 +435,166 @@ export interface Database {
         }
         Relationships: []
       }
+      user_settings: {
+        Row: {
+          user_id: string
+          message_policy: 'EVERYONE' | 'NOBODY'
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          message_policy?: 'EVERYONE' | 'NOBODY'
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          message_policy?: 'EVERYONE' | 'NOBODY'
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      message_requests: {
+        Row: {
+          id: string
+          sender_id: string
+          recipient_id: string
+          initial_message: string
+          status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'BLOCKED'
+          resolved_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          sender_id: string
+          recipient_id: string
+          initial_message: string
+          status?: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'BLOCKED'
+          resolved_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          sender_id?: string
+          recipient_id?: string
+          initial_message?: string
+          status?: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'BLOCKED'
+          resolved_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      conversations: {
+        Row: {
+          id: string
+          request_id: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          request_id: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          request_id?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      conversation_members: {
+        Row: {
+          conversation_id: string
+          user_id: string
+          joined_at: string
+        }
+        Insert: {
+          conversation_id: string
+          user_id: string
+          joined_at?: string
+        }
+        Update: {
+          conversation_id?: string
+          user_id?: string
+          joined_at?: string
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          id: string
+          conversation_id: string
+          sender_id: string
+          content: string
+          deleted_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          conversation_id: string
+          sender_id: string
+          content: string
+          deleted_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          conversation_id?: string
+          sender_id?: string
+          content?: string
+          deleted_at?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      create_message_request: {
+        Args: {
+          target_receiver_id: string
+          initial_msg: string
+        }
+        Returns: string
+      }
+      accept_message_request: {
+        Args: {
+          target_request_id: string
+        }
+        Returns: string
+      }
+      reject_message_request: {
+        Args: {
+          target_request_id: string
+        }
+        Returns: boolean
+      }
+      block_message_request: {
+        Args: {
+          target_request_id: string
+        }
+        Returns: boolean
+      }
+      soft_delete_message: {
+        Args: {
+          target_message_id: string
+        }
+        Returns: boolean
+      }
+      is_blocked_between: {
+        Args: {
+          user_a: string
+          user_b: string
+        }
+        Returns: boolean
+      }
       increment_post_views: {
         Args: {
           target_post_id: string

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { isDirectoryEnabled } from '@/lib/config/feature-flags';
-import { Home, Compass, PlusCircle, MessageSquare, User, ShieldAlert, Bookmark } from 'lucide-react';
+import { Home, Compass, PlusCircle, MessageSquare, User, ShieldAlert, Bookmark, Search } from 'lucide-react';
 
 interface NavbarProps {
   user?: {
@@ -43,6 +43,17 @@ export function Navbar({ user }: NavbarProps) {
             )}
           </nav>
         </div>
+
+        {/* Header Quick Search */}
+        <form action="/explorar" method="GET" className="hidden lg:flex items-center relative w-64">
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
+          <input
+            type="text"
+            name="q"
+            placeholder="Buscar en ForoFetiche..."
+            className="w-full rounded-full border border-zinc-800 bg-zinc-900/90 py-1.5 pl-9 pr-3 text-xs text-zinc-100 placeholder-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
+          />
+        </form>
 
         {/* Action Controls & Auth */}
         <div className="hidden md:flex items-center gap-4">
