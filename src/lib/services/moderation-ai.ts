@@ -80,10 +80,35 @@ Responde ÚNICAMENTE con un JSON válido con este esquema exacto:
 }`;
 }
 
+/**
+ * Helper to query single source of truth system_config table for MODERATION_AI_ENABLED.
+ * MANDATORY FAIL-SAFE RULE: Defaults to true if setting key is missing or error reading system_config.
+ */
+export async function isModerationAiEnabled(supabaseClient?: any): Promise<boolean> {
+  const supabase = supabaseClient || createAdminClient();
+  try {
+    const { data, error } = await supabase
+      .from('system_config')
+      .select('value')
+      .eq('key', 'MODERATION_AI_ENABLED')
+      .maybeSingle();
+
+    if (error || !data || data.value === undefined || data.value === null) {
+      // FAIL-SAFE: Default to true to prevent moderation bypass
+      return true;
+    }
+
+    return data.value === 'true';
+  } catch {
+    // FAIL-SAFE: Default to true on error
+    return true;
+  }
+}
+
 export async function analyzeContentWithAi(params: AnalyzeContentParams) {
   const supabase = createAdminClient();
 
-  const isEnabled = process.env.MODERATION_AI_ENABLED === 'true';
+  const isEnabled = await isModerationAiEnabled(supabase);
   const modelName = process.env.MODERATION_AI_MODEL || 'foro-ai-v1';
 
   // 1. Fetch real content from server database (never trust client-supplied text/title)
@@ -130,7 +155,7 @@ export async function analyzeContentWithAi(params: AnalyzeContentParams) {
     }
   }
 
-  // 3. Disabled Fallback: If AI is disabled in environment, return cleanly
+  // 3. Disabled Fallback: If AI is disabled in system_config, return cleanly
   if (!isEnabled) {
     return { status: 'DISABLED', result: null };
   }

@@ -1,13 +1,12 @@
 import { createClient } from '@/lib/supabase/client';
 import { sanitizeHtml } from '@/lib/sanitize';
 import type { CommentFormValues } from '@/lib/validations/comment';
+import { isModerationAiEnabled } from '@/lib/services/moderation-ai';
 
 export async function createComment(formValues: CommentFormValues, authorId: string) {
   const supabase = createClient();
 
-  const isAiEnabled =
-    process.env.NEXT_PUBLIC_MODERATION_AI_ENABLED === 'true' ||
-    process.env.MODERATION_AI_ENABLED === 'true';
+  const isAiEnabled = await isModerationAiEnabled(supabase);
 
   let depth = 1;
 
@@ -67,9 +66,7 @@ export async function createComment(formValues: CommentFormValues, authorId: str
 export async function updateComment(commentId: string, content: string, userId: string) {
   const supabase = createClient();
 
-  const isAiEnabled =
-    process.env.NEXT_PUBLIC_MODERATION_AI_ENABLED === 'true' ||
-    process.env.MODERATION_AI_ENABLED === 'true';
+  const isAiEnabled = await isModerationAiEnabled(supabase);
 
   const sanitizedContent = sanitizeHtml(content);
 

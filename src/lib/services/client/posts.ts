@@ -2,13 +2,12 @@ import { createClient } from '@/lib/supabase/client';
 import { slugify, sanitizeHtml, normalizeTag } from '@/lib/sanitize';
 import type { PostFormValues } from '@/lib/validations/post';
 import type { Database } from '@/types/database';
+import { isModerationAiEnabled } from '@/lib/services/moderation-ai';
 
 export async function createPost(formValues: PostFormValues, authorId: string) {
   const supabase = createClient();
 
-  const isAiEnabled =
-    process.env.NEXT_PUBLIC_MODERATION_AI_ENABLED === 'true' ||
-    process.env.MODERATION_AI_ENABLED === 'true';
+  const isAiEnabled = await isModerationAiEnabled(supabase);
 
   const baseSlug = slugify(formValues.title);
   const uniqueSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 8)}`;
@@ -82,9 +81,7 @@ export async function createPost(formValues: PostFormValues, authorId: string) {
 export async function updatePost(postId: string, formValues: Partial<PostFormValues>, userId: string) {
   const supabase = createClient();
 
-  const isAiEnabled =
-    process.env.NEXT_PUBLIC_MODERATION_AI_ENABLED === 'true' ||
-    process.env.MODERATION_AI_ENABLED === 'true';
+  const isAiEnabled = await isModerationAiEnabled(supabase);
 
   const updateData: Database['public']['Tables']['posts']['Update'] = {
     updated_at: new Date().toISOString(),

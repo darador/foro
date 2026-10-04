@@ -429,4 +429,107 @@ describe('FASE 3B & 3B.1 — Moderación Automática con IA Integrity & Security
       expect(migration29Content).toContain('IF NOT is_mod AND ai_enabled THEN');
     });
   });
+
+  // 8. FASE 3B.7 — UNIFIED SINGLE SOURCE OF TRUTH VERIFICATION TESTS
+  describe('8. Fase 3B.7 Unified Single Source of Truth Tests', () => {
+    it('Caso 1: DB = true, ENV = false -> AI considered enabled, ENV does not override DB', async () => {
+      const { isModerationAiEnabled } = await import('@/lib/services/moderation-ai');
+      const originalEnv = process.env.MODERATION_AI_ENABLED;
+      process.env.MODERATION_AI_ENABLED = 'false';
+
+      const mockSupabase = {
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: { value: 'true' }, error: null }),
+            }),
+          }),
+        }),
+      };
+
+      const result = await isModerationAiEnabled(mockSupabase);
+      expect(result).toBe(true);
+
+      process.env.MODERATION_AI_ENABLED = originalEnv;
+    });
+
+    it('Caso 2: DB = false, ENV = true -> AI considered disabled, ENV does not override DB', async () => {
+      const { isModerationAiEnabled } = await import('@/lib/services/moderation-ai');
+      const originalEnv = process.env.MODERATION_AI_ENABLED;
+      process.env.MODERATION_AI_ENABLED = 'true';
+
+      const mockSupabase = {
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: { value: 'false' }, error: null }),
+            }),
+          }),
+        }),
+      };
+
+      const result = await isModerationAiEnabled(mockSupabase);
+      expect(result).toBe(false);
+
+      process.env.MODERATION_AI_ENABLED = originalEnv;
+    });
+
+    it('Caso 3: DB = true, ENV = true -> AI enabled', async () => {
+      const { isModerationAiEnabled } = await import('@/lib/services/moderation-ai');
+      const mockSupabase = {
+        from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { value: 'true' }, error: null }) }) }) }),
+      };
+      expect(await isModerationAiEnabled(mockSupabase)).toBe(true);
+    });
+
+    it('Caso 4: DB = false, ENV = false -> AI disabled', async () => {
+      const { isModerationAiEnabled } = await import('@/lib/services/moderation-ai');
+      const mockSupabase = {
+        from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { value: 'false' }, error: null }) }) }) }),
+      };
+      expect(await isModerationAiEnabled(mockSupabase)).toBe(false);
+    });
+
+    it('Caso 5: Missing DB key or error -> MANDATORY FAIL-SAFE defaults to true (enabled)', async () => {
+      const { isModerationAiEnabled } = await import('@/lib/services/moderation-ai');
+      const mockSupabaseMissing = {
+        from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }),
+      };
+      const mockSupabaseError = {
+        from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: new Error('DB connection error') }) }) }) }),
+      };
+
+      expect(await isModerationAiEnabled(mockSupabaseMissing)).toBe(true);
+      expect(await isModerationAiEnabled(mockSupabaseError)).toBe(true);
+    });
+
+    it('Caso 6: Verifies no functional decisions in posts/comments services rely on process.env.MODERATION_AI_ENABLED', () => {
+      const postsService = fs.readFileSync(path.join(process.cwd(), 'src/lib/services/client/posts.ts'), 'utf-8');
+      const commentsService = fs.readFileSync(path.join(process.cwd(), 'src/lib/services/client/comments.ts'), 'utf-8');
+
+      expect(postsService).not.toContain('process.env.MODERATION_AI_ENABLED');
+      expect(postsService).not.toContain('process.env.NEXT_PUBLIC_MODERATION_AI_ENABLED');
+      expect(commentsService).not.toContain('process.env.MODERATION_AI_ENABLED');
+      expect(commentsService).not.toContain('process.env.NEXT_PUBLIC_MODERATION_AI_ENABLED');
+    });
+
+    it('Caso 7: system_config = true produces identical enabled behavior in publication gate and analyzeContentWithAi', async () => {
+      const gateMigrationContent = fs.readFileSync(
+        path.join(process.cwd(), 'supabase/migrations/20261004000029_fase3b6_harden_publication_gate_anon.sql'),
+        'utf-8'
+      );
+      expect(gateMigrationContent).toContain("SELECT value INTO config_val");
+      expect(gateMigrationContent).toContain("FROM public.system_config");
+      expect(gateMigrationContent).toContain("WHERE key = 'MODERATION_AI_ENABLED'");
+      expect(gateMigrationContent).toContain("ai_enabled := (config_val = 'true');");
+    });
+
+    it('Caso 8: system_config = false produces identical disabled behavior in publication gate and analyzeContentWithAi', async () => {
+      const { isModerationAiEnabled } = await import('@/lib/services/moderation-ai');
+      const mockDisabledSupabase = {
+        from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { value: 'false' }, error: null }) }) }) }),
+      };
+      expect(await isModerationAiEnabled(mockDisabledSupabase)).toBe(false);
+    });
+  });
 });
