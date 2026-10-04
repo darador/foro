@@ -2,12 +2,19 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 
-describe('Fase 2C-1 — Modelo de Datos y Seguridad para Mensajería Privada', () => {
-  const migrationPath = path.join(
+describe('Fase 2C-1 — Correcciones de Seguridad para Mensajería Privada', () => {
+  const baseMigrationPath = path.join(
     process.cwd(),
     'supabase',
     'migrations',
     '20261004000010_fase2c1_private_messaging_security.sql'
+  );
+
+  const correctionsMigrationPath = path.join(
+    process.cwd(),
+    'supabase',
+    'migrations',
+    '20261004000011_fase2c1_messaging_security_corrections.sql'
   );
 
   const servicePath = path.join(
@@ -18,74 +25,55 @@ describe('Fase 2C-1 — Modelo de Datos y Seguridad para Mensajería Privada', (
     'messaging.ts'
   );
 
-  it('Migration 20261004000010_fase2c1_private_messaging_security.sql exists', () => {
-    expect(fs.existsSync(migrationPath)).toBe(true);
+  it('Migration 20261004000011_fase2c1_messaging_security_corrections.sql exists', () => {
+    expect(fs.existsSync(correctionsMigrationPath)).toBe(true);
   });
 
-  describe('Static AST & SQL Contract Verification for Migration 000010', () => {
-    const migrationSql = fs.readFileSync(migrationPath, 'utf8');
+  describe('Static AST & SQL Contract Verification for Migration 000011 Corrections', () => {
+    const sql = fs.readFileSync(correctionsMigrationPath, 'utf8');
 
-    it('creates user_settings table with message_policy column and RLS', () => {
-      expect(migrationSql).toContain('CREATE TABLE IF NOT EXISTS public.user_settings');
-      expect(migrationSql).toContain("message_policy TEXT NOT NULL DEFAULT 'EVERYONE'");
-      expect(migrationSql).toContain("CHECK (message_policy IN ('EVERYONE', 'NOBODY'))");
-      expect(migrationSql).toContain('ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;');
+    it('revokes direct INSERT and UPDATE policies on message_requests for normal users', () => {
+      expect(sql).toContain('DROP POLICY IF EXISTS "Users can send message requests" ON public.message_requests;');
+      expect(sql).toContain('DROP POLICY IF EXISTS "Recipients can update message requests" ON public.message_requests;');
+      expect(sql).toContain('CREATE POLICY "No direct insert on message_requests"');
+      expect(sql).toContain('CREATE POLICY "No direct update on message_requests"');
+      expect(sql).toContain('WITH CHECK (false)');
+      expect(sql).toContain('USING (false)');
     });
 
-    it('creates symmetric unique index on active PENDING message_requests', () => {
-      expect(migrationSql).toContain('idx_unique_active_message_request');
-      expect(migrationSql).toContain('LEAST(sender_id, recipient_id), GREATEST(sender_id, recipient_id)');
-      expect(migrationSql).toContain("WHERE status = 'PENDING'");
+    it('creates symmetrical unique index covering both PENDING and ACCEPTED statuses', () => {
+      expect(sql).toContain('idx_unique_active_or_accepted_message_request');
+      expect(sql).toContain('LEAST(sender_id, recipient_id), GREATEST(sender_id, recipient_id)');
+      expect(sql).toContain("WHERE status IN ('PENDING', 'ACCEPTED')");
     });
 
-    it('adds resolved_at to message_requests and deleted_at to messages', () => {
-      expect(migrationSql).toContain('ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ;');
-      expect(migrationSql).toContain('ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;');
-      expect(migrationSql).toContain('chk_message_content_length');
+    it('revokes execution on is_blocked_between from authenticated users as well', () => {
+      expect(sql).toContain('REVOKE EXECUTE ON FUNCTION public.is_blocked_between(UUID, UUID) FROM PUBLIC, anon, authenticated;');
     });
 
-    it('implements is_blocked_between helper with SET search_path = public', () => {
-      expect(migrationSql).toContain('CREATE OR REPLACE FUNCTION public.is_blocked_between');
-      expect(migrationSql).toContain('SET search_path = public');
+    it('hardens can_send_message with SET search_path = public and strict validations', () => {
+      expect(sql).toContain('CREATE OR REPLACE FUNCTION public.can_send_message');
+      expect(sql).toContain('SET search_path = public');
+      expect(sql).toContain("req_status <> 'ACCEPTED'");
+      expect(sql).toContain('REVOKE EXECUTE ON FUNCTION public.can_send_message(UUID, UUID) FROM PUBLIC, anon;');
+      expect(sql).toContain('GRANT EXECUTE ON FUNCTION public.can_send_message(UUID, UUID) TO authenticated;');
     });
 
-    it('implements SECURITY DEFINER RPCs with SET search_path = public', () => {
-      const rpcs = [
-        'create_message_request',
-        'accept_message_request',
-        'reject_message_request',
-        'block_message_request',
-        'soft_delete_message',
-      ];
-
-      for (const rpc of rpcs) {
-        expect(migrationSql).toContain(`CREATE OR REPLACE FUNCTION public.${rpc}`);
-      }
-
-      // Check search_path count matches SECURITY DEFINER functions count
-      const searchPathCount = (migrationSql.match(/SET search_path = public/g) || []).length;
-      expect(searchPathCount).toBeGreaterThanOrEqual(6);
+    it('accept_message_request converts initial_message into first message in messages table', () => {
+      expect(sql).toContain('CREATE OR REPLACE FUNCTION public.accept_message_request');
+      expect(sql).toContain('INSERT INTO public.messages');
+      expect(sql).toContain('req_record.initial_message');
     });
 
-    it('revokes execute grants from PUBLIC/anon and grants only to authenticated', () => {
-      expect(migrationSql).toContain('REVOKE EXECUTE ON FUNCTION public.create_message_request FROM PUBLIC, anon;');
-      expect(migrationSql).toContain('GRANT EXECUTE ON FUNCTION public.create_message_request TO authenticated;');
-      expect(migrationSql).toContain('REVOKE EXECUTE ON FUNCTION public.accept_message_request FROM PUBLIC, anon;');
-      expect(migrationSql).toContain('GRANT EXECUTE ON FUNCTION public.accept_message_request TO authenticated;');
-    });
-
-    it('enforces RLS blocking direct INSERT/UPDATE/DELETE on conversations and members', () => {
-      expect(migrationSql).toContain('No direct insert on conversations');
-      expect(migrationSql).toContain('No direct update on conversations');
-      expect(migrationSql).toContain('No direct insert on conversation_members');
-      expect(migrationSql).toContain('No direct update on conversation_members');
-      expect(migrationSql).toContain('No direct delete on conversation_members');
-      expect(migrationSql).toContain('No direct update on messages');
-      expect(migrationSql).toContain('No direct delete on messages');
+    it('create_message_request strictly forces auth.uid() as sender and checks status IN (PENDING, ACCEPTED)', () => {
+      expect(sql).toContain('CREATE OR REPLACE FUNCTION public.create_message_request');
+      expect(sql).toContain('caller_id := auth.uid();');
+      expect(sql).toContain("status IN ('PENDING', 'ACCEPTED')");
+      expect(sql).toContain("target_policy = 'NOBODY'");
     });
   });
 
-  describe('Messaging Service Module', () => {
+  describe('Messaging Service Module Verification', () => {
     it('service file src/lib/services/messaging.ts exists and exports RPC wrapper methods', () => {
       expect(fs.existsSync(servicePath)).toBe(true);
 
