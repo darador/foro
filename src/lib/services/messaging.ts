@@ -226,3 +226,86 @@ export async function updateMessagePolicy(policy: 'EVERYONE' | 'NOBODY') {
 
   return data;
 }
+
+export type MessagingRelationStatus =
+  | 'SELF'
+  | 'NO_RELATION'
+  | 'PENDING_SENT'
+  | 'PENDING_RECEIVED'
+  | 'ACCEPTED'
+  | 'REJECTED'
+  | 'BLOCKED'
+  | 'POLICY_NOBODY';
+
+/**
+ * Determines the messaging relationship status between the authenticated user and a target user.
+ */
+export async function getRequestStatusBetweenUsers(targetUserId: string): Promise<{
+  status: MessagingRelationStatus;
+  requestId?: string;
+}> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { status: 'NO_RELATION' };
+  if (user.id === targetUserId) return { status: 'SELF' };
+
+  // Check blocks
+  const { data: blocks } = await supabase
+    .from('user_blocks')
+    .select('blocker_id, blocked_id')
+    .or(
+      `and(blocker_id.eq.${user.id},blocked_id.eq.${targetUserId}),and(blocker_id.eq.${targetUserId},blocked_id.eq.${user.id})`
+    );
+
+  if (blocks && blocks.length > 0) {
+    return { status: 'BLOCKED' };
+  }
+
+  // Check target user's message_policy
+  const { data: targetSettings } = await supabase
+    .from('user_settings')
+    .select('message_policy')
+    .eq('user_id', targetUserId)
+    .single();
+
+  if (targetSettings && targetSettings.message_policy === 'NOBODY') {
+    return { status: 'POLICY_NOBODY' };
+  }
+
+  // Check message requests
+  const { data: requests } = await supabase
+    .from('message_requests')
+    .select('id, sender_id, recipient_id, status')
+    .or(
+      `and(sender_id.eq.${user.id},recipient_id.eq.${targetUserId}),and(sender_id.eq.${targetUserId},recipient_id.eq.${user.id})`
+    )
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (requests && requests.length > 0) {
+    const req = requests[0];
+    if (req.status === 'ACCEPTED') {
+      return { status: 'ACCEPTED', requestId: req.id };
+    }
+    if (req.status === 'PENDING') {
+      if (req.sender_id === user.id) {
+        return { status: 'PENDING_SENT', requestId: req.id };
+      } else {
+        return { status: 'PENDING_RECEIVED', requestId: req.id };
+      }
+    }
+    if (req.status === 'REJECTED') {
+      return { status: 'REJECTED', requestId: req.id };
+    }
+    if (req.status === 'BLOCKED') {
+      return { status: 'BLOCKED', requestId: req.id };
+    }
+  }
+
+  return { status: 'NO_RELATION' };
+}
+
