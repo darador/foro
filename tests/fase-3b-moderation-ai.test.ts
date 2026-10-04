@@ -171,7 +171,7 @@ describe('FASE 3B & 3B.1 — Moderación Automática con IA Integrity & Security
     it('Test 2 — verifies database trigger rejects INSERT post or comment with status=PUBLISHED by normal users', () => {
       const gateMigrationPath = path.join(
         process.cwd(),
-        'supabase/migrations/20261004000026_fase3b3_publication_gate_hardening.sql'
+        'supabase/migrations/20261004000027_fase3b4_critical_moderation_and_publication_gate.sql'
       );
       const gateContent = fs.readFileSync(gateMigrationPath, 'utf-8');
 
@@ -183,7 +183,7 @@ describe('FASE 3B & 3B.1 — Moderación Automática con IA Integrity & Security
     it('Test 3 — verifies database trigger permits INSERT with status=PENDING_REVIEW', () => {
       const gateMigrationPath = path.join(
         process.cwd(),
-        'supabase/migrations/20261004000026_fase3b3_publication_gate_hardening.sql'
+        'supabase/migrations/20261004000027_fase3b4_critical_moderation_and_publication_gate.sql'
       );
       const gateContent = fs.readFileSync(gateMigrationPath, 'utf-8');
 
@@ -195,7 +195,7 @@ describe('FASE 3B & 3B.1 — Moderación Automática con IA Integrity & Security
     it('Test 4 — verifies database trigger rejects UPDATE promoting status to PUBLISHED by normal users', () => {
       const gateMigrationPath = path.join(
         process.cwd(),
-        'supabase/migrations/20261004000026_fase3b3_publication_gate_hardening.sql'
+        'supabase/migrations/20261004000027_fase3b4_critical_moderation_and_publication_gate.sql'
       );
       const gateContent = fs.readFileSync(gateMigrationPath, 'utf-8');
 
@@ -207,7 +207,7 @@ describe('FASE 3B & 3B.1 — Moderación Automática con IA Integrity & Security
     it('Test 5 — verifies privileged service role context is recognized by database publication gate trigger', () => {
       const gateMigrationPath = path.join(
         process.cwd(),
-        'supabase/migrations/20261004000026_fase3b3_publication_gate_hardening.sql'
+        'supabase/migrations/20261004000027_fase3b4_critical_moderation_and_publication_gate.sql'
       );
       const gateContent = fs.readFileSync(gateMigrationPath, 'utf-8');
 
@@ -219,12 +219,89 @@ describe('FASE 3B & 3B.1 — Moderación Automática con IA Integrity & Security
     it('Test 6 — verifies human moderators are exempted from publication gate restriction', () => {
       const gateMigrationPath = path.join(
         process.cwd(),
-        'supabase/migrations/20261004000026_fase3b3_publication_gate_hardening.sql'
+        'supabase/migrations/20261004000027_fase3b4_critical_moderation_and_publication_gate.sql'
       );
       const gateContent = fs.readFileSync(gateMigrationPath, 'utf-8');
 
       expect(gateContent).toContain('public.is_moderator(auth.uid())');
-      expect(gateContent).toContain('IF NOT is_mod THEN');
+      expect(gateContent).toContain('IF NOT is_mod AND ai_enabled THEN');
+    });
+  });
+
+  // 5. FASE 3B.4 — 10 MANDATORY VERIFICATION TESTS
+  describe('5. Fase 3B.4 Mandatory Verification Tests', () => {
+    const migration27Path = path.join(
+      process.cwd(),
+      'supabase/migrations/20261004000027_fase3b4_critical_moderation_and_publication_gate.sql'
+    );
+    const migration27Content = fs.readFileSync(migration27Path, 'utf-8');
+    const serviceContent = fs.readFileSync(path.join(process.cwd(), 'src/lib/services/moderation-ai.ts'), 'utf-8');
+
+    it('1. POST CRITICAL -> HIDDEN', () => {
+      expect(serviceContent).toContain("else if (classification.risk_level === 'CRITICAL')");
+      expect(serviceContent).toContain("if (params.entityType === 'POST')");
+      expect(serviceContent).toContain(".from('posts')");
+      expect(serviceContent).toContain(".update({ status: 'HIDDEN', updated_at: new Date().toISOString() })");
+    });
+
+    it('2. COMMENT CRITICAL -> HIDDEN', () => {
+      expect(serviceContent).toContain("else if (classification.risk_level === 'CRITICAL')");
+      expect(serviceContent).toContain("else if (params.entityType === 'COMMENT')");
+      expect(serviceContent).toContain(".from('comments')");
+      expect(serviceContent).toContain(".update({ status: 'HIDDEN', updated_at: new Date().toISOString() })");
+    });
+
+    it('3. AI enabled + usuario -> PUBLISHED rechazado', () => {
+      expect(migration27Content).toContain('SELECT value INTO config_val');
+      expect(migration27Content).toContain("FROM public.system_config");
+      expect(migration27Content).toContain("WHERE key = 'MODERATION_AI_ENABLED'");
+      expect(migration27Content).toContain('IF NOT is_mod AND ai_enabled THEN');
+      expect(migration27Content).toContain("IF NEW.status = 'PUBLISHED' THEN");
+      expect(migration27Content).toContain('Usuarios no moderadores no pueden publicar directamente con estado PUBLISHED');
+    });
+
+    it('4. AI enabled + usuario -> PENDING_REVIEW permitido', () => {
+      expect(migration27Content).toContain('IF NOT is_mod AND ai_enabled THEN');
+      expect(migration27Content).toContain('RETURN NEW;');
+    });
+
+    it('5. AI enabled + flujo interno -> LOW -> PUBLISHED permitido', () => {
+      expect(migration27Content).toContain("current_setting('request.jwt.claim.role', true) = 'service_role'");
+      expect(serviceContent).toContain("if (classification.risk_level === 'LOW')");
+      expect(serviceContent).toContain(".update({ status: 'PUBLISHED', updated_at: new Date().toISOString() })");
+    });
+
+    it('6. AI disabled + usuario -> PUBLISHED permitido', () => {
+      expect(migration27Content).toContain("ai_enabled := (config_val = 'true');");
+      expect(migration27Content).toContain('IF NOT is_mod AND ai_enabled THEN');
+      // When ai_enabled is false, the trigger bypasses the non-moderator publication block
+    });
+
+    it('7. AI disabled + usuario no obtiene privilegios adicionales de moderación', () => {
+      const modRpcMigration = fs.readFileSync(
+        path.join(process.cwd(), 'supabase/migrations/20261004000008_fix_status_moderation_bypass.sql'),
+        'utf-8'
+      );
+      expect(modRpcMigration).toContain('IF NOT public.is_moderator(auth.uid()) THEN');
+      expect(modRpcMigration).toContain('Acceso denegado. Solo los moderadores pueden modificar el estado de publicación.');
+    });
+
+    it('8. Moderador humano conserva sus permisos', () => {
+      expect(migration27Content).toContain('is_mod := public.is_moderator(auth.uid());');
+      expect(migration27Content).toContain('IF NOT is_mod AND ai_enabled THEN');
+    });
+
+    it('9. Service role conserva su capacidad interna', () => {
+      expect(migration27Content).toContain("session_user IN ('postgres', 'supabase_admin')");
+      expect(migration27Content).toContain("current_setting('request.jwt.claim.role', true) = 'service_role'");
+    });
+
+    it('10. No se modifica contenido ajeno mediante el flujo normal', () => {
+      const postsService = fs.readFileSync(path.join(process.cwd(), 'src/lib/services/client/posts.ts'), 'utf-8');
+      const commentsService = fs.readFileSync(path.join(process.cwd(), 'src/lib/services/client/comments.ts'), 'utf-8');
+
+      expect(postsService).toContain(".eq('author_id', userId)");
+      expect(commentsService).toContain(".eq('author_id', userId)");
     });
   });
 });

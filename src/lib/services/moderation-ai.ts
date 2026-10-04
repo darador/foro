@@ -197,7 +197,13 @@ export async function analyzeContentWithAi(params: AnalyzeContentParams) {
         .eq('status', 'PENDING_REVIEW');
     }
   } else if (classification.risk_level === 'CRITICAL') {
-    if (params.entityType === 'COMMENT') {
+    if (params.entityType === 'POST') {
+      await supabase
+        .from('posts')
+        .update({ status: 'HIDDEN', updated_at: new Date().toISOString() })
+        .eq('id', params.entityId)
+        .in('status', ['PUBLISHED', 'PENDING_REVIEW', 'DRAFT']);
+    } else if (params.entityType === 'COMMENT') {
       await supabase
         .from('comments')
         .update({ status: 'HIDDEN', updated_at: new Date().toISOString() })
