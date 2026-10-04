@@ -118,6 +118,10 @@ export async function getUserRequests() {
 /**
   * Fetches messages for a conversation where current user is a member.
   */
+/**
+ * Fetches messages for a conversation where current user is a member.
+ * Includes soft-deleted messages so UI can render deleted message indicators.
+ */
 export async function getConversationMessages(conversationId: string) {
   const supabase = await createClient();
 
@@ -133,7 +137,6 @@ export async function getConversationMessages(conversationId: string) {
       sender:profiles!messages_sender_id_fkey(id, alias, avatar_url)
     `)
     .eq('conversation_id', conversationId)
-    .is('deleted_at', null)
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -145,8 +148,163 @@ export async function getConversationMessages(conversationId: string) {
 }
 
 /**
-  * Inserts a message into a conversation.
-  */
+ * Fetches all active conversations for the authenticated user.
+ */
+export async function getUserConversations() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return [];
+
+  const { data: memberRows, error: memberErr } = await supabase
+    .from('conversation_members')
+    .select('conversation_id')
+    .eq('user_id', user.id);
+
+  if (memberErr || !memberRows || memberRows.length === 0) {
+    return [];
+  }
+
+  const convIds = memberRows.map((r) => r.conversation_id);
+
+  const { data: conversations, error: convErr } = await supabase
+    .from('conversations')
+    .select(`
+      id,
+      request_id,
+      created_at,
+      updated_at,
+      members:conversation_members!conversation_members_conversation_id_fkey(
+        user_id,
+        profile:profiles!conversation_members_user_id_fkey(id, alias, avatar_url)
+      )
+    `)
+    .in('id', convIds)
+    .order('updated_at', { ascending: false });
+
+  if (convErr || !conversations) {
+    console.error('Error fetching user conversations:', convErr);
+    return [];
+  }
+
+  const result = await Promise.all(
+    conversations.map(async (conv) => {
+      const otherMember = conv.members?.find((m: any) => m.user_id !== user.id);
+      const otherUser = otherMember?.profile || null;
+
+      const { data: lastMsgs } = await supabase
+        .from('messages')
+        .select('id, content, sender_id, created_at, deleted_at')
+        .eq('conversation_id', conv.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      const lastMessage = lastMsgs && lastMsgs.length > 0 ? lastMsgs[0] : null;
+
+      let isBlocked = false;
+      if (otherUser) {
+        const { data: blocks } = await supabase
+          .from('user_blocks')
+          .select('blocker_id')
+          .or(
+            `and(blocker_id.eq.${user.id},blocked_id.eq.${otherUser.id}),and(blocker_id.eq.${otherUser.id},blocked_id.eq.${user.id})`
+          )
+          .limit(1);
+        if (blocks && blocks.length > 0) {
+          isBlocked = true;
+        }
+      }
+
+      return {
+        id: conv.id,
+        request_id: conv.request_id,
+        created_at: conv.created_at,
+        updated_at: conv.updated_at,
+        otherUser,
+        lastMessage,
+        isBlocked,
+      };
+    })
+  );
+
+  return result;
+}
+
+/**
+ * Fetches single conversation details by ID for the current authenticated user.
+ */
+export async function getConversationDetails(conversationId: string) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return null;
+
+  const { data: conv, error } = await supabase
+    .from('conversations')
+    .select(`
+      id,
+      request_id,
+      created_at,
+      updated_at,
+      members:conversation_members!conversation_members_conversation_id_fkey(
+        user_id,
+        profile:profiles!conversation_members_user_id_fkey(id, alias, avatar_url)
+      ),
+      request:message_requests!conversations_request_id_fkey(
+        id,
+        status,
+        initial_message
+      )
+    `)
+    .eq('id', conversationId)
+    .maybeSingle();
+
+  if (error || !conv) {
+    return null;
+  }
+
+  const isMember = conv.members?.some((m: any) => m.user_id === user.id);
+  if (!isMember) {
+    return null;
+  }
+
+  const otherMember = conv.members?.find((m: any) => m.user_id !== user.id);
+  const otherUser = otherMember?.profile || null;
+
+  let isBlocked = false;
+  if (otherUser) {
+    const { data: blocks } = await supabase
+      .from('user_blocks')
+      .select('blocker_id')
+      .or(
+        `and(blocker_id.eq.${user.id},blocked_id.eq.${otherUser.id}),and(blocker_id.eq.${otherUser.id},blocked_id.eq.${user.id})`
+      )
+      .limit(1);
+    if (blocks && blocks.length > 0) {
+      isBlocked = true;
+    }
+  }
+
+  return {
+    id: conv.id,
+    request_id: conv.request_id,
+    requestStatus: conv.request?.status || 'ACCEPTED',
+    created_at: conv.created_at,
+    updated_at: conv.updated_at,
+    otherUser,
+    isBlocked,
+  };
+}
+
+/**
+ * Inserts a message into a conversation.
+ */
 export async function sendMessage(conversationId: string, content: string) {
   const supabase = await createClient();
 
@@ -180,8 +338,8 @@ export async function sendMessage(conversationId: string, content: string) {
 }
 
 /**
-  * Calls RPC soft_delete_message to set deleted_at timestamp.
-  */
+ * Calls RPC soft_delete_message to set deleted_at timestamp.
+ */
 export async function deleteMessage(messageId: string) {
   const supabase = await createClient();
 
@@ -198,8 +356,8 @@ export async function deleteMessage(messageId: string) {
 }
 
 /**
-  * Updates user's message policy settings (EVERYONE | NOBODY).
-  */
+ * Updates user's message policy settings (EVERYONE | NOBODY).
+ */
 export async function updateMessagePolicy(policy: 'EVERYONE' | 'NOBODY') {
   const supabase = await createClient();
 
@@ -244,6 +402,7 @@ export type MessagingRelationStatus =
 export async function getRequestStatusBetweenUsers(targetUserId: string): Promise<{
   status: MessagingRelationStatus;
   requestId?: string;
+  conversationId?: string;
 }> {
   const supabase = await createClient();
 
@@ -281,7 +440,13 @@ export async function getRequestStatusBetweenUsers(targetUserId: string): Promis
   if (requests && requests.length > 0) {
     const req = requests[0];
     if (req.status === 'ACCEPTED') {
-      return { status: 'ACCEPTED', requestId: req.id };
+      const { data: conv } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('request_id', req.id)
+        .maybeSingle();
+
+      return { status: 'ACCEPTED', requestId: req.id, conversationId: conv?.id };
     }
     if (req.status === 'PENDING') {
       if (req.sender_id === user.id) {
@@ -294,7 +459,6 @@ export async function getRequestStatusBetweenUsers(targetUserId: string): Promis
       return { status: 'BLOCKED', requestId: req.id };
     }
     if (req.status === 'REJECTED') {
-      // For REJECTED status, check target user's message_policy before allowing a new request
       const { data: canReceive } = await supabase.rpc('can_receive_message_request', {
         target_user_id: targetUserId,
       });

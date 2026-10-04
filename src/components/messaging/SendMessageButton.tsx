@@ -10,6 +10,7 @@ interface SendMessageButtonProps {
   targetUserId: string;
   targetAlias: string;
   initialRelationStatus?: MessagingRelationStatus;
+  conversationId?: string;
   isAuthenticated?: boolean;
 }
 
@@ -17,6 +18,7 @@ export function SendMessageButton({
   targetUserId,
   targetAlias,
   initialRelationStatus = 'NO_RELATION',
+  conversationId,
   isAuthenticated = true,
 }: SendMessageButtonProps) {
   const [relation, setRelation] = useState<MessagingRelationStatus>(initialRelationStatus);
@@ -65,7 +67,7 @@ export function SendMessageButton({
       {/* 5. Accepted Conversation */}
       {relation === 'ACCEPTED' && (
         <Link
-          href="/mensajes"
+          href={conversationId ? `/mensajes/${conversationId}` : '/mensajes'}
           className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white shadow hover:bg-indigo-500 transition"
         >
           <MessageSquare className="h-3.5 w-3.5" />

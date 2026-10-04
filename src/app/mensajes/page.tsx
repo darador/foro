@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import { MessageSquare, ShieldCheck, LogIn } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { getUserRequests } from '@/lib/services/messaging';
-import { MessageRequestsList } from '@/components/messaging/MessageRequestsList';
+import { getUserRequests, getUserConversations } from '@/lib/services/messaging';
+import { ConversationsInbox } from '@/components/messaging/ConversationsInbox';
 
 export default async function MensajesPage() {
   let user = null;
   let requests: any[] = [];
+  let conversations: any[] = [];
 
   try {
     const supabase = await createClient();
@@ -16,10 +17,13 @@ export default async function MensajesPage() {
 
     if (authUser) {
       user = authUser;
-      requests = await getUserRequests();
+      [requests, conversations] = await Promise.all([
+        getUserRequests(),
+        getUserConversations(),
+      ]);
     }
   } catch {
-    // Ignore fallback
+    // Fallback if not authenticated or error
   }
 
   return (
@@ -29,16 +33,16 @@ export default async function MensajesPage() {
         <div>
           <h1 className="text-2xl font-bold text-zinc-100 flex items-center gap-2">
             <MessageSquare className="h-6 w-6 text-indigo-400" />
-            Solicitudes de Mensajes
+            Mensajería Privada
           </h1>
           <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-            Gestioná tus solicitudes de conversación privadas enviadas y recibidas.
+            Bandeja de entrada de conversaciones y solicitudes de mensajes.
           </p>
         </div>
 
         <div className="inline-flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg w-fit">
           <ShieldCheck className="h-4 w-4" />
-          <span>Protegido por solicitudes</span>
+          <span>Protegido por RLS</span>
         </div>
       </div>
 
@@ -53,7 +57,7 @@ export default async function MensajesPage() {
               Iniciá sesión para ver tus mensajes
             </h3>
             <p className="text-xs text-zinc-400 max-w-md mx-auto">
-              Para enviar y responder solicitudes de conversación privada debés estar registrado en ForoFetiche.
+              Para enviar mensajes y gestionar conversaciones privadas debés estar registrado en ForoFetiche.
             </p>
           </div>
           <div className="pt-2">
@@ -66,7 +70,11 @@ export default async function MensajesPage() {
           </div>
         </div>
       ) : (
-        <MessageRequestsList initialRequests={requests} currentUserId={user.id} />
+        <ConversationsInbox
+          initialConversations={conversations}
+          initialRequests={requests}
+          currentUserId={user.id}
+        />
       )}
     </div>
   );

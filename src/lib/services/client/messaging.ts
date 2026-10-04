@@ -95,3 +95,75 @@ export async function deleteMessage(messageId: string) {
 
   return data;
 }
+
+/**
+ * Inserts a new text message into a conversation (Client side).
+ */
+export async function sendMessageClient(conversationId: string, content: string) {
+  const supabase = createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error('Authentication required');
+
+  const cleanContent = content.trim();
+  if (!cleanContent || cleanContent.length > 2000) {
+    throw new Error('El mensaje debe tener entre 1 y 2000 caracteres');
+  }
+
+  const { data, error } = await supabase
+    .from('messages')
+    .insert({
+      conversation_id: conversationId,
+      sender_id: user.id,
+      content: cleanContent,
+    })
+    .select(`
+      id,
+      conversation_id,
+      sender_id,
+      content,
+      deleted_at,
+      created_at,
+      sender:profiles!messages_sender_id_fkey(id, alias, avatar_url)
+    `)
+    .single();
+
+  if (error) {
+    console.error('Error in sendMessageClient:', error);
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+
+/**
+ * Fetches messages for a conversation (Client side re-fetch).
+ */
+export async function getConversationMessagesClient(conversationId: string) {
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from('messages')
+    .select(`
+      id,
+      conversation_id,
+      sender_id,
+      content,
+      deleted_at,
+      created_at,
+      sender:profiles!messages_sender_id_fkey(id, alias, avatar_url)
+    `)
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error in getConversationMessagesClient:', error);
+    return [];
+  }
+
+  return data || [];
+}
+

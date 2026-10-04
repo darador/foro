@@ -52,11 +52,16 @@ export function MessageRequestsList({
 
   const pendingReceivedCount = receivedRequests.filter((r) => r.status === 'PENDING').length;
 
+  const [acceptedConvMap, setAcceptedConvMap] = useState<Record<string, string>>({});
+
   const handleAccept = async (requestId: string) => {
     setLoadingAction(requestId);
     setActionError(null);
     try {
-      await acceptRequest(requestId);
+      const convId = await acceptRequest(requestId);
+      if (convId) {
+        setAcceptedConvMap((prev) => ({ ...prev, [requestId]: convId }));
+      }
       setRequests((prev) =>
         prev.map((r) => (r.id === requestId ? { ...r, status: 'ACCEPTED' } : r))
       );
@@ -262,11 +267,11 @@ export function MessageRequestsList({
                           <CheckCircle2 className="h-3.5 w-3.5" /> Solicitud aceptada. Ahora pueden enviarse mensajes.
                         </span>
                         <Link
-                          href="/mensajes"
+                          href={acceptedConvMap[req.id] ? `/mensajes/${acceptedConvMap[req.id]}` : '/mensajes'}
                           className="inline-flex items-center gap-1 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-300 hover:bg-indigo-500/20 transition"
                         >
                           <MessageSquare className="h-3.5 w-3.5" />
-                          Ir a mensajes
+                          Ir a la conversación
                         </Link>
                       </div>
                     )}

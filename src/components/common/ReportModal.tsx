@@ -7,7 +7,7 @@ import type { ReportReason } from '@/types/database';
 
 interface ReportModalProps {
   targetId: string;
-  targetType: 'POST' | 'COMMENT' | 'PROFILE';
+  targetType: 'POST' | 'COMMENT' | 'PROFILE' | 'MESSAGE';
   user?: { id: string } | null;
 }
 
