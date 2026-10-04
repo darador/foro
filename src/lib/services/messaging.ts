@@ -239,6 +239,7 @@ export type MessagingRelationStatus =
 
 /**
  * Determines the messaging relationship status between the authenticated user and a target user.
+ * Prioritizes active relationships (ACCEPTED, PENDING, BLOCKED) over target user's message_policy settings.
  */
 export async function getRequestStatusBetweenUsers(targetUserId: string): Promise<{
   status: MessagingRelationStatus;
@@ -250,10 +251,12 @@ export async function getRequestStatusBetweenUsers(targetUserId: string): Promis
     data: { user },
   } = await supabase.auth.getUser();
 
+  // 1. Unauthenticated Visitor
   if (!user) return { status: 'NO_RELATION' };
+  // 2. Self Profile
   if (user.id === targetUserId) return { status: 'SELF' };
 
-  // Check blocks
+  // 3. Check blocks (Takes absolute precedence)
   const { data: blocks } = await supabase
     .from('user_blocks')
     .select('blocker_id, blocked_id')
@@ -265,16 +268,7 @@ export async function getRequestStatusBetweenUsers(targetUserId: string): Promis
     return { status: 'BLOCKED' };
   }
 
-  // Check target user's message_policy via secure RPC helper
-  const { data: canReceive } = await supabase.rpc('can_receive_message_request', {
-    target_user_id: targetUserId,
-  });
-
-  if (canReceive === false) {
-    return { status: 'POLICY_NOBODY' };
-  }
-
-  // Check message requests
+  // 4. Check existing message requests
   const { data: requests } = await supabase
     .from('message_requests')
     .select('id, sender_id, recipient_id, status')
@@ -296,12 +290,29 @@ export async function getRequestStatusBetweenUsers(targetUserId: string): Promis
         return { status: 'PENDING_RECEIVED', requestId: req.id };
       }
     }
-    if (req.status === 'REJECTED') {
-      return { status: 'REJECTED', requestId: req.id };
-    }
     if (req.status === 'BLOCKED') {
       return { status: 'BLOCKED', requestId: req.id };
     }
+    if (req.status === 'REJECTED') {
+      // For REJECTED status, check target user's message_policy before allowing a new request
+      const { data: canReceive } = await supabase.rpc('can_receive_message_request', {
+        target_user_id: targetUserId,
+      });
+
+      if (canReceive === false) {
+        return { status: 'POLICY_NOBODY', requestId: req.id };
+      }
+      return { status: 'REJECTED', requestId: req.id };
+    }
+  }
+
+  // 5. No existing relationship -> Check target user's message_policy
+  const { data: canReceive } = await supabase.rpc('can_receive_message_request', {
+    target_user_id: targetUserId,
+  });
+
+  if (canReceive === false) {
+    return { status: 'POLICY_NOBODY' };
   }
 
   return { status: 'NO_RELATION' };
