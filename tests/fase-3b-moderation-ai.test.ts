@@ -153,5 +153,78 @@ describe('FASE 3B & 3B.1 — Moderación Automática con IA Integrity & Security
       expect(serviceContent).toContain(".update({ status: 'PUBLISHED', updated_at: new Date().toISOString() })");
       expect(serviceContent).toContain(".eq('status', 'PENDING_REVIEW')");
     });
+
+    it('Test 1 — throws error when SUPABASE_SERVICE_ROLE_KEY is missing (no fallback to anon key or dummy key)', async () => {
+      const { createAdminClient } = await import('@/lib/supabase/admin');
+      const originalServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const originalServiceKeyAlt = process.env.SUPABASE_SERVICE_KEY;
+
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+      delete process.env.SUPABASE_SERVICE_KEY;
+
+      expect(() => createAdminClient()).toThrow('SUPABASE_SERVICE_ROLE_KEY is required for admin operations');
+
+      process.env.SUPABASE_SERVICE_ROLE_KEY = originalServiceKey;
+      if (originalServiceKeyAlt) process.env.SUPABASE_SERVICE_KEY = originalServiceKeyAlt;
+    });
+
+    it('Test 2 — verifies database trigger rejects INSERT post or comment with status=PUBLISHED by normal users', () => {
+      const gateMigrationPath = path.join(
+        process.cwd(),
+        'supabase/migrations/20261004000026_fase3b3_publication_gate_hardening.sql'
+      );
+      const gateContent = fs.readFileSync(gateMigrationPath, 'utf-8');
+
+      expect(gateContent).toContain('CREATE OR REPLACE FUNCTION public.enforce_publication_gate()');
+      expect(gateContent).toContain("IF NEW.status = 'PUBLISHED' THEN");
+      expect(gateContent).toContain('Usuarios no moderadores no pueden publicar directamente con estado PUBLISHED');
+    });
+
+    it('Test 3 — verifies database trigger permits INSERT with status=PENDING_REVIEW', () => {
+      const gateMigrationPath = path.join(
+        process.cwd(),
+        'supabase/migrations/20261004000026_fase3b3_publication_gate_hardening.sql'
+      );
+      const gateContent = fs.readFileSync(gateMigrationPath, 'utf-8');
+
+      expect(gateContent).toContain('BEFORE INSERT OR UPDATE ON public.posts');
+      expect(gateContent).toContain('BEFORE INSERT OR UPDATE ON public.comments');
+      expect(gateContent).toContain('RETURN NEW;');
+    });
+
+    it('Test 4 — verifies database trigger rejects UPDATE promoting status to PUBLISHED by normal users', () => {
+      const gateMigrationPath = path.join(
+        process.cwd(),
+        'supabase/migrations/20261004000026_fase3b3_publication_gate_hardening.sql'
+      );
+      const gateContent = fs.readFileSync(gateMigrationPath, 'utf-8');
+
+      expect(gateContent).toContain("ELSIF TG_OP = 'UPDATE' THEN");
+      expect(gateContent).toContain("IF NEW.status = 'PUBLISHED'");
+      expect(gateContent).toContain('Usuarios no moderadores no pueden promover el estado de contenido a PUBLISHED');
+    });
+
+    it('Test 5 — verifies privileged service role context is recognized by database publication gate trigger', () => {
+      const gateMigrationPath = path.join(
+        process.cwd(),
+        'supabase/migrations/20261004000026_fase3b3_publication_gate_hardening.sql'
+      );
+      const gateContent = fs.readFileSync(gateMigrationPath, 'utf-8');
+
+      expect(gateContent).toContain("current_setting('request.jwt.claim.role', true) = 'service_role'");
+      expect(gateContent).toContain("session_user IN ('postgres', 'supabase_admin')");
+      expect(gateContent).toContain('auth.uid() IS NULL');
+    });
+
+    it('Test 6 — verifies human moderators are exempted from publication gate restriction', () => {
+      const gateMigrationPath = path.join(
+        process.cwd(),
+        'supabase/migrations/20261004000026_fase3b3_publication_gate_hardening.sql'
+      );
+      const gateContent = fs.readFileSync(gateMigrationPath, 'utf-8');
+
+      expect(gateContent).toContain('public.is_moderator(auth.uid())');
+      expect(gateContent).toContain('IF NOT is_mod THEN');
+    });
   });
 });
