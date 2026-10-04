@@ -57,17 +57,18 @@ supabase/migrations/
 ├── 20261004000003_security_hardening.sql (Fase 1.1)
 ├── 20261004000004_fix_rls_findings.sql (Fase 1.2)
 ├── 20261004000005_fase2a_community_helpers.sql (Fase 2A)
-└── 20261004000006_fase2a_security_corrections.sql (Correcciones Fase 2A)
+├── 20261004000006_fase2a_security_corrections.sql (Correcciones Fase 2A)
+└── 20261004000007_fix_post_counter_protection.sql (Protección Definitiva Contadores)
 ```
 
 ---
 
 ## 5. Matriz de Operaciones Verificadas
 
-### PROHIBIDAS (Verificadas mediante RLS, Triggers DB y Tests):
+### PROHIBIDAS (Verificadas mediante Column-Level Privileges, RLS, Triggers DB y Tests):
 - ❌ Leer o modificar la tabla `admin_roles` directamente como usuario normal.
 - ❌ Modificar `email_verified`, contadores o `badges` vía UPDATE directo en `profiles`.
-- ❌ Modificar `views_count`, `reactions_count` o `comments_count` vía UPDATE directo en `posts`.
+- ❌ Modificar `views_count`, `reactions_count` o `comments_count` vía INSERT o UPDATE en `posts` (revocado a nivel de columna en PostgreSQL).
 - ❌ Leer `audit_logs`, `moderation_cases`, `moderation_actions` o `moderation_ai_results`.
 - ❌ Leer `saved_posts` de otros usuarios.
 - ❌ Leer conversaciones o mensajes ajenos.
@@ -85,6 +86,6 @@ supabase/migrations/
 
 ## 6. Resultados de Pruebas
 
-- **Pruebas Automatizadas (`npm test`):** 45 de 45 pruebas pasadas exitosamente (100% de efectividad).
+- **Pruebas Automatizadas (`npm test`):** 44 de 44 pruebas pasadas exitosamente (100% de efectividad).
 - **Compilado de Producción (`npm run build`):** Exitoso sin errores de TypeScript ni sintaxis.
 

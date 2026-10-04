@@ -9,10 +9,11 @@ import { sanitizeHtml } from '../src/lib/sanitize';
  * CLASIFICACIÓN EXPLÍCITA DE ESTOS TESTS:
  * 1. PRUEBAS UNITARIAS DE SANITIZACIÓN: Ejecutan la función `sanitizeHtml()` con
  *    múltiples vectores de ataque XSS (DOMPurify allowlist).
- * 2. PRUEBAS CONTRACTUALES / ESTRUCTURALES SQL: Verifican la presencia de triggers,
- *    restricciones CHECK, search_path y sentencias REVOKE en las migraciones incremental.
+ * 2. PRUEBAS CONTRACTUALES / ESTRUCTURALES SQL: Verifican la presencia de Column-Level Privileges,
+ *    triggers, restricciones CHECK, search_path y sentencias REVOKE en las migraciones incremental.
  * 
- * NOTA: NO son pruebas de integración runtime en PostgreSQL (debido a SECURITY_VALIDATION_PENDING).
+ * NOTA DE DEUDA TÉCNICA: SECURITY_VALIDATION_PENDING (No son pruebas de integración runtime en PostgreSQL
+ * por falta de Docker / Supabase CLI en el entorno actual).
  */
 
 describe('FASE 2A — NÚCLEO DE COMUNIDAD: Verificación Contractual & Seguridad', () => {
@@ -21,6 +22,7 @@ describe('FASE 2A — NÚCLEO DE COMUNIDAD: Verificación Contractual & Segurida
 
   const initialRls = getSql('20261004000001_rls_policies.sql');
   const correctionsSql = getSql('20261004000006_fase2a_security_corrections.sql');
+  const counterFixSql = getSql('20261004000007_fix_post_counter_protection.sql');
 
   describe('1. SANITIZACIÓN HTML & PROTECCIÓN XSS (DOMPurify Allowlist)', () => {
     test('Permite etiquetas seguras y formato básico', () => {
@@ -76,13 +78,34 @@ describe('FASE 2A — NÚCLEO DE COMUNIDAD: Verificación Contractual & Segurida
     });
   });
 
-  describe('2. PROTECCIÓN DE CONTADORES DE PUBLICACIONES (POSTS)', () => {
-    test('Existe función y trigger protect_post_readonly_fields para impedir edición manual', () => {
-      expect(correctionsSql).toContain('FUNCTION public.protect_post_readonly_fields()');
-      expect(correctionsSql).toContain('BEFORE UPDATE ON public.posts');
-      expect(correctionsSql).toContain('NEW.views_count := OLD.views_count;');
-      expect(correctionsSql).toContain('NEW.reactions_count := OLD.reactions_count;');
-      expect(correctionsSql).toContain('NEW.comments_count := OLD.comments_count;');
+  describe('2. PROTECCIÓN DE CONTADORES DE PUBLICACIONES (COLUMN-LEVEL PRIVILEGES & TRIGGERS)', () => {
+    test('Revoca permisos de INSERT y UPDATE sobre la tabla posts a authenticated y anon', () => {
+      expect(counterFixSql).toContain('REVOKE INSERT, UPDATE ON public.posts FROM authenticated, anon, PUBLIC;');
+    });
+
+    test('Otorga permiso de INSERT únicamente en columnas editables por el usuario', () => {
+      const grantInsertBlock = counterFixSql.split('GRANT INSERT (')[1].split(') ON public.posts')[0];
+      expect(grantInsertBlock).toContain('title');
+      expect(grantInsertBlock).toContain('content');
+      expect(grantInsertBlock).not.toContain('views_count');
+      expect(grantInsertBlock).not.toContain('reactions_count');
+      expect(grantInsertBlock).not.toContain('comments_count');
+    });
+
+    test('Otorga permiso de UPDATE únicamente en columnas editables por el usuario', () => {
+      const grantUpdateBlock = counterFixSql.split('GRANT UPDATE (')[1].split(') ON public.posts')[0];
+      expect(grantUpdateBlock).toContain('title');
+      expect(grantUpdateBlock).toContain('content');
+      expect(grantUpdateBlock).toContain('status');
+      expect(grantUpdateBlock).not.toContain('views_count');
+      expect(grantUpdateBlock).not.toContain('reactions_count');
+      expect(grantUpdateBlock).not.toContain('comments_count');
+    });
+
+    test('Función y trigger protect_post_readonly_fields evalúa pg_trigger_depth() y session_user', () => {
+      expect(counterFixSql).toContain('FUNCTION public.protect_post_readonly_fields()');
+      expect(counterFixSql).toContain('pg_trigger_depth() <= 1');
+      expect(counterFixSql).toContain('session_user NOT IN (\'postgres\', \'supabase_admin\')');
     });
   });
 
@@ -112,7 +135,7 @@ describe('FASE 2A — NÚCLEO DE COMUNIDAD: Verificación Contractual & Segurida
       expect(initialSchema).toContain('depth INTEGER NOT NULL DEFAULT 1 CHECK (depth <= 3)');
     });
 
-    test('Guardados y follows son estrictamente privados', () => {
+    test('Guardados y follows son strictly privados', () => {
       expect(initialRls).toContain('CREATE POLICY "Users can only view own saved posts"');
       expect(initialRls).toContain('CREATE POLICY "Users can view own post follows"');
     });
