@@ -83,6 +83,35 @@ export async function submitReport(params: {
 }) {
   const supabase = createClient();
 
+  const { data: rpcReportId, error: rpcError } = await supabase.rpc('submit_report_with_case', {
+    target_type_param: params.targetType,
+    target_id_param: params.targetId,
+    reason_param: params.reason,
+    details_param: params.details || null,
+  });
+
+  if (!rpcError && rpcReportId) {
+    const { data: reportData } = await supabase
+      .from('reports')
+      .select()
+      .eq('id', rpcReportId)
+      .maybeSingle();
+
+    if (reportData) return reportData;
+    return {
+      id: rpcReportId,
+      reporter_id: params.reporterId,
+      target_type: params.targetType,
+      target_id: params.targetId,
+      reason: params.reason,
+      details: params.details || null,
+      status: 'OPEN',
+      case_id: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+  }
+
   const { data, error } = await supabase
     .from('reports')
     .insert({

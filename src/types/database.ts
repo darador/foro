@@ -14,6 +14,8 @@ export type CommentStatus = 'PUBLISHED' | 'HIDDEN' | 'DELETED';
 export type ReportReason = 'MINOR' | 'NON_CONSENSUAL' | 'PERSONAL_DATA' | 'THREAT' | 'EXTORTION' | 'HARASSMENT' | 'SPAM' | 'OTHER';
 export type ReportStatus = 'OPEN' | 'IN_REVIEW' | 'WAITING_USER' | 'ESCALATED' | 'RESOLVED';
 export type ModerationPriority = 'LOW' | 'REVIEW' | 'CRITICAL';
+export type UserSanctionAction = 'WARNING' | 'TEMPORARY_RESTRICTION' | 'SUSPEND' | 'PERMANENT_SUSPENSION';
+export type ModerationActionType = 'APPROVE' | 'REQUEST_CHANGES' | 'HIDE' | 'DELETE' | 'WARN' | 'RESTRICT_POSTS' | 'RESTRICT_MESSAGES' | 'SUSPEND' | 'BAN';
 
 export interface Database {
   public: {
@@ -342,6 +344,138 @@ export interface Database {
         }
         Relationships: []
       }
+      moderation_cases: {
+        Row: {
+          id: string
+          report_id: string | null
+          target_type: 'POST' | 'COMMENT' | 'PROFILE' | 'MESSAGE' | null
+          target_id: string | null
+          assigned_moderator_id: string | null
+          status: ReportStatus
+          priority: ModerationPriority
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          report_id?: string | null
+          target_type?: 'POST' | 'COMMENT' | 'PROFILE' | 'MESSAGE' | null
+          target_id?: string | null
+          assigned_moderator_id?: string | null
+          status?: ReportStatus
+          priority?: ModerationPriority
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          report_id?: string | null
+          target_type?: 'POST' | 'COMMENT' | 'PROFILE' | 'MESSAGE' | null
+          target_id?: string | null
+          assigned_moderator_id?: string | null
+          status?: ReportStatus
+          priority?: ModerationPriority
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      moderation_actions: {
+        Row: {
+          id: string
+          case_id: string | null
+          moderator_id: string
+          action_type: ModerationActionType
+          target_user_id: string | null
+          reason: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          case_id?: string | null
+          moderator_id: string
+          action_type: ModerationActionType
+          target_user_id?: string | null
+          reason: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          case_id?: string | null
+          moderator_id?: string
+          action_type?: ModerationActionType
+          target_user_id?: string | null
+          reason?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      content_versions: {
+        Row: {
+          id: string
+          entity_type: 'POST' | 'COMMENT'
+          entity_id: string
+          version_number: number
+          title: string | null
+          content: string
+          edited_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          entity_type: 'POST' | 'COMMENT'
+          entity_id: string
+          version_number: number
+          title?: string | null
+          content: string
+          edited_by: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          entity_type?: 'POST' | 'COMMENT'
+          entity_id?: string
+          version_number?: number
+          title?: string | null
+          content?: string
+          edited_by?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      user_moderation_actions: {
+        Row: {
+          id: string
+          user_id: string
+          action: UserSanctionAction
+          reason: string
+          expires_at: string | null
+          created_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          action: UserSanctionAction
+          reason: string
+          expires_at?: string | null
+          created_by: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          action?: UserSanctionAction
+          reason?: string
+          expires_at?: string | null
+          created_by?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       tags: {
         Row: {
           id: string
@@ -408,6 +542,7 @@ export interface Database {
           reason: ReportReason
           details: string | null
           status: ReportStatus
+          case_id: string | null
           created_at: string
           updated_at: string
         }
@@ -419,6 +554,7 @@ export interface Database {
           reason: ReportReason
           details?: string | null
           status?: ReportStatus
+          case_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -430,6 +566,7 @@ export interface Database {
           reason?: ReportReason
           details?: string | null
           status?: ReportStatus
+          case_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -772,6 +909,15 @@ export interface Database {
           new_status: string
         }
         Returns: void
+      }
+      submit_report_with_case: {
+        Args: {
+          target_type_param: string
+          target_id_param: string
+          reason_param: string
+          details_param?: string | null
+        }
+        Returns: string
       }
     }
     Enums: {
