@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { isDirectoryEnabled } from '@/lib/config/feature-flags';
 import { Home, Compass, PlusCircle, MessageSquare, User, ShieldAlert, Bookmark, Search } from 'lucide-react';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 interface NavbarProps {
   user?: {
@@ -66,6 +67,7 @@ export function Navbar({ user }: NavbarProps) {
                 <PlusCircle className="h-4 w-4" />
                 Publicar
               </Link>
+              <NotificationBell />
               <Link
                 href="/mensajes"
                 className="p-2 text-zinc-400 hover:text-white transition rounded-md hover:bg-zinc-900"

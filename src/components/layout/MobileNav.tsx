@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Compass, PlusCircle, MessageSquare, User } from 'lucide-react';
+import { Home, Compass, PlusCircle, MessageSquare, Bell, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function MobileNav() {
@@ -12,8 +12,8 @@ export function MobileNav() {
     { label: 'Inicio', href: '/', icon: Home },
     { label: 'Explorar', href: '/explorar', icon: Compass },
     { label: 'Publicar', href: '/publicar', icon: PlusCircle, isPrimary: true },
+    { label: 'Avisos', href: '/notificaciones', icon: Bell },
     { label: 'Mensajes', href: '/mensajes', icon: MessageSquare },
-    { label: 'Perfil', href: '/perfil', icon: User },
   ];
 
   return (
