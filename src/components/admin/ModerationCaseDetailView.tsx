@@ -20,6 +20,7 @@ import {
   EyeOff,
   Check,
   RotateCcw,
+  Sparkles,
 } from 'lucide-react';
 import type {
   ModerationPriority,
@@ -45,6 +46,7 @@ interface ModerationCaseDetailViewProps {
     authorTotalReportsCount: number;
     moderationActions: any[];
     auditLogs: any[];
+    aiResults?: any[];
   };
 }
 
@@ -369,6 +371,62 @@ export function ModerationCaseDetailView({ currentUserId, detail }: ModerationCa
           </div>
         ) : (
           <p className="text-xs text-zinc-500 italic">No se pudo cargar el contenido o fue eliminado.</p>
+        )}
+      </div>
+
+      {/* AI Moderation Signal Section */}
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-6 space-y-4">
+        <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+          <h2 className="text-base font-bold text-zinc-100 flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-indigo-400" />
+            Análisis Automático con IA (Señal de Asistencia)
+          </h2>
+          <span className="text-[11px] text-zinc-500 bg-zinc-950 px-2.5 py-1 rounded-md border border-zinc-800">
+            Solo visible para moderación
+          </span>
+        </div>
+
+        <p className="text-xs text-amber-300/80 bg-amber-950/40 p-3 rounded-lg border border-amber-800/40 italic">
+          “La clasificación automática es una señal de asistencia. La decisión final corresponde al moderador humano.”
+        </p>
+
+        {detail.aiResults && detail.aiResults.length > 0 ? (
+          <div className="space-y-3">
+            {detail.aiResults.map((ai: any) => (
+              <div key={ai.id} className="p-4 bg-zinc-950 rounded-xl border border-zinc-800 text-xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-zinc-300">Riesgo IA:</span>
+                    {getPriorityBadge(ai.risk_level)}
+                    <span className="text-zinc-500 font-mono text-[11px]">Model: {ai.model}</span>
+                  </div>
+                  <span className="text-zinc-500 text-[11px]">
+                    Confianza: {ai.confidence !== null ? `${(ai.confidence * 100).toFixed(0)}%` : 'N/A'} —{' '}
+                    {new Date(ai.created_at).toLocaleString('es-AR')}
+                  </span>
+                </div>
+
+                {ai.flags && ai.flags.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-zinc-400 font-medium">Flags:</span>
+                    {ai.flags.map((flag: string) => (
+                      <span key={flag} className="px-2 py-0.5 rounded bg-zinc-800 text-rose-400 font-mono text-[10px]">
+                        {flag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {ai.reason && (
+                  <p className="text-zinc-300 italic border-l-2 border-indigo-500 pl-2.5 py-0.5">
+                    &ldquo;{ai.reason}&rdquo;
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-zinc-500 italic">No hay registros de análisis automático de IA para este contenido.</p>
         )}
       </div>
 

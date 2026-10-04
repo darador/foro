@@ -49,6 +49,15 @@ export async function createComment(formValues: CommentFormValues, authorId: str
     throw new Error(error?.message || 'Error al publicar el comentario');
   }
 
+  // Trigger server-side AI analysis asynchronously on comment creation
+  import('@/app/actions/moderation-ai').then(({ runAiContentModerationAction }) => {
+    runAiContentModerationAction({
+      entityType: 'COMMENT',
+      entityId: comment.id,
+      content: comment.content,
+    }).catch((err) => console.error('AI moderation trigger error on comment creation:', err));
+  });
+
   return comment;
 }
 
@@ -71,6 +80,15 @@ export async function updateComment(commentId: string, content: string, userId: 
   if (error) {
     throw new Error(error.message);
   }
+
+  // Trigger server-side AI analysis asynchronously on comment update
+  import('@/app/actions/moderation-ai').then(({ runAiContentModerationAction }) => {
+    runAiContentModerationAction({
+      entityType: 'COMMENT',
+      entityId: updatedComment.id,
+      content: updatedComment.content,
+    }).catch((err) => console.error('AI moderation trigger error on comment update:', err));
+  });
 
   return updatedComment;
 }

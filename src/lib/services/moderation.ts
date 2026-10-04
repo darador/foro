@@ -410,6 +410,18 @@ export async function getModerationCaseDetail(caseId: string) {
     auditLogs = logs || [];
   }
 
+  // AI Moderation Results
+  let aiResults: any[] = [];
+  if (caseData.target_id) {
+    const { data: aiData } = await supabase
+      .from('moderation_ai_results')
+      .select('id, case_id, entity_type, entity_id, content_version_id, model, risk_level, flags, confidence, reason, created_at')
+      .or(`case_id.eq.${caseId},entity_id.eq.${caseData.target_id}`)
+      .order('created_at', { ascending: false });
+
+    aiResults = aiData || [];
+  }
+
   return {
     caseInfo: caseData,
     reports,
@@ -420,6 +432,7 @@ export async function getModerationCaseDetail(caseId: string) {
     authorTotalReportsCount,
     moderationActions: actionsData || [],
     auditLogs,
+    aiResults,
   };
 }
 

@@ -64,6 +64,16 @@ export async function createPost(formValues: PostFormValues, authorId: string) {
     }
   }
 
+  // Trigger server-side AI analysis asynchronously
+  import('@/app/actions/moderation-ai').then(({ runAiContentModerationAction }) => {
+    runAiContentModerationAction({
+      entityType: 'POST',
+      entityId: post.id,
+      title: post.title,
+      content: post.content,
+    }).catch((err) => console.error('AI moderation trigger error on post creation:', err));
+  });
+
   return post;
 }
 
@@ -101,6 +111,16 @@ export async function updatePost(postId: string, formValues: Partial<PostFormVal
   if (error) {
     throw new Error(error.message);
   }
+
+  // Trigger server-side AI analysis asynchronously on post update
+  import('@/app/actions/moderation-ai').then(({ runAiContentModerationAction }) => {
+    runAiContentModerationAction({
+      entityType: 'POST',
+      entityId: updatedPost.id,
+      title: updatedPost.title,
+      content: updatedPost.content,
+    }).catch((err) => console.error('AI moderation trigger error on post update:', err));
+  });
 
   return updatedPost;
 }

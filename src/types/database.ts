@@ -281,29 +281,41 @@ export interface Database {
       moderation_ai_results: {
         Row: {
           id: string
-          case_id: string
+          case_id: string | null
+          entity_type: 'POST' | 'COMMENT' | null
+          entity_id: string | null
+          content_version_id: string | null
           model: string
           risk_level: ModerationPriority
           flags: string[]
           confidence: number | null
+          reason: string | null
           created_at: string
         }
         Insert: {
           id?: string
-          case_id: string
+          case_id?: string | null
+          entity_type?: 'POST' | 'COMMENT' | null
+          entity_id?: string | null
+          content_version_id?: string | null
           model: string
           risk_level: ModerationPriority
           flags?: string[]
           confidence?: number | null
+          reason?: string | null
           created_at?: string
         }
         Update: {
           id?: string
-          case_id?: string
+          case_id?: string | null
+          entity_type?: 'POST' | 'COMMENT' | null
+          entity_id?: string | null
+          content_version_id?: string | null
           model?: string
           risk_level?: ModerationPriority
           flags?: string[]
           confidence?: number | null
+          reason?: string | null
           created_at?: string
         }
         Relationships: []
@@ -942,6 +954,19 @@ export interface Database {
       assign_moderation_case: {
         Args: {
           case_id_param: string
+        }
+        Returns: string
+      }
+      record_ai_moderation_result: {
+        Args: {
+          entity_type_param: string
+          entity_id_param: string
+          content_version_id_param?: string | null
+          model_param: string
+          risk_level_param: string
+          flags_param: string[]
+          confidence_param: number
+          reason_param: string
         }
         Returns: string
       }
