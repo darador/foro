@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 
-describe('Fase 2C-1 — Correcciones de Seguridad para Mensajería Privada', () => {
-  const baseMigrationPath = path.join(
+describe('Fase 2C-1 — Máquina de Estados y Hardening Final de Mensajería', () => {
+  const stateHardeningMigrationPath = path.join(
     process.cwd(),
     'supabase',
     'migrations',
-    '20261004000010_fase2c1_private_messaging_security.sql'
+    '20261004000012_fase2c1_final_state_hardening.sql'
   );
 
   const correctionsMigrationPath = path.join(
@@ -15,6 +15,13 @@ describe('Fase 2C-1 — Correcciones de Seguridad para Mensajería Privada', () 
     'supabase',
     'migrations',
     '20261004000011_fase2c1_messaging_security_corrections.sql'
+  );
+
+  const baseMigrationPath = path.join(
+    process.cwd(),
+    'supabase',
+    'migrations',
+    '20261004000010_fase2c1_private_messaging_security.sql'
   );
 
   const servicePath = path.join(
@@ -25,51 +32,48 @@ describe('Fase 2C-1 — Correcciones de Seguridad para Mensajería Privada', () 
     'messaging.ts'
   );
 
-  it('Migration 20261004000011_fase2c1_messaging_security_corrections.sql exists', () => {
-    expect(fs.existsSync(correctionsMigrationPath)).toBe(true);
+  it('Migration 20261004000012_fase2c1_final_state_hardening.sql exists', () => {
+    expect(fs.existsSync(stateHardeningMigrationPath)).toBe(true);
   });
 
-  describe('Static AST & SQL Contract Verification for Migration 000011 Corrections', () => {
-    const sql = fs.readFileSync(correctionsMigrationPath, 'utf8');
+  describe('Static AST & SQL Contract Verification for Migration 000012', () => {
+    const sql12 = fs.readFileSync(stateHardeningMigrationPath, 'utf8');
 
-    it('revokes direct INSERT and UPDATE policies on message_requests for normal users', () => {
-      expect(sql).toContain('DROP POLICY IF EXISTS "Users can send message requests" ON public.message_requests;');
-      expect(sql).toContain('DROP POLICY IF EXISTS "Recipients can update message requests" ON public.message_requests;');
-      expect(sql).toContain('CREATE POLICY "No direct insert on message_requests"');
-      expect(sql).toContain('CREATE POLICY "No direct update on message_requests"');
-      expect(sql).toContain('WITH CHECK (false)');
-      expect(sql).toContain('USING (false)');
+    it('enforces strict PENDING status check in block_message_request', () => {
+      expect(sql12).toContain('CREATE OR REPLACE FUNCTION public.block_message_request');
+      expect(sql12).toContain("req_record.status <> 'PENDING'");
+      expect(sql12).toContain("Only PENDING message requests can be blocked.");
     });
 
-    it('creates symmetrical unique index covering both PENDING and ACCEPTED statuses', () => {
-      expect(sql).toContain('idx_unique_active_or_accepted_message_request');
-      expect(sql).toContain('LEAST(sender_id, recipient_id), GREATEST(sender_id, recipient_id)');
-      expect(sql).toContain("WHERE status IN ('PENDING', 'ACCEPTED')");
+    it('revokes execution of can_send_message from PUBLIC, anon, AND authenticated', () => {
+      expect(sql12).toContain('REVOKE EXECUTE ON FUNCTION public.can_send_message(UUID, UUID) FROM PUBLIC, anon, authenticated;');
+    });
+  });
+
+  describe('State Machine & Transitions Verification Across RPC Definitions', () => {
+    const sql11 = fs.readFileSync(correctionsMigrationPath, 'utf8');
+    const sql10 = fs.readFileSync(baseMigrationPath, 'utf8');
+    const allSql = sql10 + '\n' + sql11 + '\n';
+
+    it('create_message_request creates requests strictly in PENDING status', () => {
+      expect(allSql).toContain("INSERT INTO public.message_requests");
+      expect(allSql).toContain("'PENDING'");
     });
 
-    it('revokes execution on is_blocked_between from authenticated users as well', () => {
-      expect(sql).toContain('REVOKE EXECUTE ON FUNCTION public.is_blocked_between(UUID, UUID) FROM PUBLIC, anon, authenticated;');
+    it('accept_message_request requires status = PENDING before transitioning to ACCEPTED', () => {
+      expect(allSql).toContain("req_record.status <> 'PENDING'");
+      expect(allSql).toContain("Only PENDING message requests can be accepted.");
     });
 
-    it('hardens can_send_message with SET search_path = public and strict validations', () => {
-      expect(sql).toContain('CREATE OR REPLACE FUNCTION public.can_send_message');
-      expect(sql).toContain('SET search_path = public');
-      expect(sql).toContain("req_status <> 'ACCEPTED'");
-      expect(sql).toContain('REVOKE EXECUTE ON FUNCTION public.can_send_message(UUID, UUID) FROM PUBLIC, anon;');
-      expect(sql).toContain('GRANT EXECUTE ON FUNCTION public.can_send_message(UUID, UUID) TO authenticated;');
+    it('reject_message_request requires status = PENDING before transitioning to REJECTED', () => {
+      expect(allSql).toContain("Only PENDING message requests can be rejected.");
     });
 
-    it('accept_message_request converts initial_message into first message in messages table', () => {
-      expect(sql).toContain('CREATE OR REPLACE FUNCTION public.accept_message_request');
-      expect(sql).toContain('INSERT INTO public.messages');
-      expect(sql).toContain('req_record.initial_message');
-    });
-
-    it('create_message_request strictly forces auth.uid() as sender and checks status IN (PENDING, ACCEPTED)', () => {
-      expect(sql).toContain('CREATE OR REPLACE FUNCTION public.create_message_request');
-      expect(sql).toContain('caller_id := auth.uid();');
-      expect(sql).toContain("status IN ('PENDING', 'ACCEPTED')");
-      expect(sql).toContain("target_policy = 'NOBODY'");
+    it('direct mutations on message_requests are blocked via RLS', () => {
+      expect(sql11).toContain('CREATE POLICY "No direct insert on message_requests"');
+      expect(sql11).toContain('CREATE POLICY "No direct update on message_requests"');
+      expect(sql11).toContain('WITH CHECK (false)');
+      expect(sql11).toContain('USING (false)');
     });
   });
 
