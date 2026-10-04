@@ -50,6 +50,11 @@ export default async function PublicProfilePage({ params }: PublicProfilePagePro
     notFound();
   }
 
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
+  const isAuthenticated = Boolean(authUser);
+
   // Fetch messaging relationship status
   const { status: relationStatus } = await getRequestStatusBetweenUsers(profile.id);
 
@@ -108,6 +113,7 @@ export default async function PublicProfilePage({ params }: PublicProfilePagePro
               targetUserId={profile.id}
               targetAlias={profile.alias}
               initialRelationStatus={relationStatus}
+              isAuthenticated={isAuthenticated}
             />
           </div>
         </div>

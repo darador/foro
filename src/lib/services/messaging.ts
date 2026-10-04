@@ -265,14 +265,12 @@ export async function getRequestStatusBetweenUsers(targetUserId: string): Promis
     return { status: 'BLOCKED' };
   }
 
-  // Check target user's message_policy
-  const { data: targetSettings } = await supabase
-    .from('user_settings')
-    .select('message_policy')
-    .eq('user_id', targetUserId)
-    .single();
+  // Check target user's message_policy via secure RPC helper
+  const { data: canReceive } = await supabase.rpc('can_receive_message_request', {
+    target_user_id: targetUserId,
+  });
 
-  if (targetSettings && targetSettings.message_policy === 'NOBODY') {
+  if (canReceive === false) {
     return { status: 'POLICY_NOBODY' };
   }
 

@@ -601,6 +601,12 @@ export interface Database {
         }
         Returns: boolean
       }
+      can_receive_message_request: {
+        Args: {
+          target_user_id: string
+        }
+        Returns: boolean
+      }
       increment_post_views: {
         Args: {
           target_post_id: string
