@@ -76,7 +76,6 @@ export async function getModerationCases(options: ModerationCasesFilterOptions =
     query = query.eq('target_type', options.targetType);
   }
 
-  // Fetch all matching data to sort accurately by priority weight
   const { data, error, count } = await query;
 
   if (error) {
@@ -116,7 +115,6 @@ export async function getModerationCases(options: ModerationCasesFilterOptions =
     };
   });
 
-  // Sort by priority weight (CRITICAL -> REVIEW -> LOW), then created_at ASC
   formattedCases.sort((a, b) => {
     const weightA = priorityWeight[a.priority] || 4;
     const weightB = priorityWeight[b.priority] || 4;
@@ -182,7 +180,6 @@ export async function getModerationCaseDetail(caseId: string) {
 
   const { data: linkedReports } = await reportsQuery;
 
-  // Fallback: search reports by target if none linked by case_id
   let reports = linkedReports || [];
   if (reports.length === 0 && caseData.target_type && caseData.target_id) {
     const { data: targetReports } = await supabase
@@ -312,7 +309,7 @@ export async function getModerationCaseDetail(caseId: string) {
     contentVersions = versions || [];
   }
 
-  // Target Author Context (sanction history & total report count)
+  // Target Author Context: sanctions history & reports RECEIVED on author's content
   let userSanctions: any[] = [];
   let authorTotalReportsCount = 0;
 
@@ -334,12 +331,53 @@ export async function getModerationCaseDetail(caseId: string) {
 
     userSanctions = sanctions || [];
 
-    const { count: reportCount } = await supabase
+    // Calculate reports received against author's profile, posts, comments, or messages
+    const { data: userPosts } = await supabase.from('posts').select('id').eq('author_id', targetAuthor.id);
+    const postIds = (userPosts || []).map((p) => p.id);
+
+    const { data: userComments } = await supabase.from('comments').select('id').eq('author_id', targetAuthor.id);
+    const commentIds = (userComments || []).map((c) => c.id);
+
+    const { data: userMsgs } = await supabase.from('messages').select('id').eq('sender_id', targetAuthor.id);
+    const msgIds = (userMsgs || []).map((m) => m.id);
+
+    let totalReceivedReports = 0;
+
+    const { count: profileReportsCount } = await supabase
       .from('reports')
       .select('id', { count: 'exact', head: true })
-      .eq('reporter_id', targetAuthor.id);
+      .eq('target_type', 'PROFILE')
+      .eq('target_id', targetAuthor.id);
+    totalReceivedReports += profileReportsCount || 0;
 
-    authorTotalReportsCount = reportCount || 0;
+    if (postIds.length > 0) {
+      const { count: postReportsCount } = await supabase
+        .from('reports')
+        .select('id', { count: 'exact', head: true })
+        .eq('target_type', 'POST')
+        .in('target_id', postIds);
+      totalReceivedReports += postReportsCount || 0;
+    }
+
+    if (commentIds.length > 0) {
+      const { count: commentReportsCount } = await supabase
+        .from('reports')
+        .select('id', { count: 'exact', head: true })
+        .eq('target_type', 'COMMENT')
+        .in('target_id', commentIds);
+      totalReceivedReports += commentReportsCount || 0;
+    }
+
+    if (msgIds.length > 0) {
+      const { count: msgReportsCount } = await supabase
+        .from('reports')
+        .select('id', { count: 'exact', head: true })
+        .eq('target_type', 'MESSAGE')
+        .in('target_id', msgIds);
+      totalReceivedReports += msgReportsCount || 0;
+    }
+
+    authorTotalReportsCount = totalReceivedReports;
   }
 
   // Case moderation actions history
@@ -385,27 +423,12 @@ export async function getModerationCaseDetail(caseId: string) {
   };
 }
 
-export async function assignModerationCase(caseId: string, moderatorId: string) {
+export async function assignModerationCase(caseId: string) {
   const supabase = await createClient();
 
-  const { data: caseObj } = await supabase
-    .from('moderation_cases')
-    .select('status')
-    .eq('id', caseId)
-    .single();
-
-  const newStatus = caseObj?.status === 'OPEN' ? 'IN_REVIEW' : caseObj?.status || 'IN_REVIEW';
-
-  const { data, error } = await supabase
-    .from('moderation_cases')
-    .update({
-      assigned_moderator_id: moderatorId,
-      status: newStatus,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', caseId)
-    .select()
-    .single();
+  const { data, error } = await supabase.rpc('assign_moderation_case', {
+    case_id_param: caseId,
+  });
 
   if (error) {
     throw new Error(`Failed to assign case: ${error.message}`);
@@ -416,7 +439,6 @@ export async function assignModerationCase(caseId: string, moderatorId: string) 
 
 export async function executeModerationAction(params: {
   caseId: string;
-  moderatorId: string;
   actionType: ModerationActionType;
   reason: string;
   notes?: string;
@@ -424,106 +446,23 @@ export async function executeModerationAction(params: {
 }) {
   const supabase = await createClient();
 
-  // 1. Fetch case details
-  const { data: caseObj, error: caseErr } = await supabase
-    .from('moderation_cases')
-    .select('id, target_type, target_id, status')
-    .eq('id', params.caseId)
-    .single();
-
-  if (caseErr || !caseObj) {
-    throw new Error('Case not found');
-  }
-
-  // 2. Perform Content Action if target entity is POST or COMMENT
-  if (caseObj.target_type === 'POST' && caseObj.target_id) {
-    if (params.actionType === 'HIDE') {
-      await supabase
-        .from('posts')
-        .update({ status: 'HIDDEN', updated_at: new Date().toISOString() })
-        .eq('id', caseObj.target_id);
-    } else if (params.actionType === 'DELETE') {
-      await supabase
-        .from('posts')
-        .update({ status: 'DELETED', updated_at: new Date().toISOString() })
-        .eq('id', caseObj.target_id);
-    } else if (params.actionType === 'APPROVE') {
-      await supabase
-        .from('posts')
-        .update({ status: 'PUBLISHED', updated_at: new Date().toISOString() })
-        .eq('id', caseObj.target_id);
-    }
-  } else if (caseObj.target_type === 'COMMENT' && caseObj.target_id) {
-    if (params.actionType === 'HIDE') {
-      await supabase
-        .from('comments')
-        .update({ status: 'HIDDEN', updated_at: new Date().toISOString() })
-        .eq('id', caseObj.target_id);
-    } else if (params.actionType === 'DELETE') {
-      await supabase
-        .from('comments')
-        .update({ status: 'DELETED', updated_at: new Date().toISOString() })
-        .eq('id', caseObj.target_id);
-    } else if (params.actionType === 'APPROVE') {
-      await supabase
-        .from('comments')
-        .update({ status: 'PUBLISHED', updated_at: new Date().toISOString() })
-        .eq('id', caseObj.target_id);
-    }
-  }
-
-  // 3. Record moderation action
-  const { data: actionData, error: actionErr } = await supabase
-    .from('moderation_actions')
-    .insert({
-      case_id: params.caseId,
-      moderator_id: params.moderatorId,
-      action_type: params.actionType,
-      reason: params.reason,
-    })
-    .select()
-    .single();
-
-  if (actionErr) {
-    throw new Error(`Failed to record moderation action: ${actionErr.message}`);
-  }
-
-  // 4. Update case status & notes
-  const nextStatus = params.newCaseStatus || 'RESOLVED';
-  await supabase
-    .from('moderation_cases')
-    .update({
-      status: nextStatus,
-      notes: params.notes || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', params.caseId);
-
-  // 5. Update linked reports status
-  await supabase
-    .from('reports')
-    .update({
-      status: nextStatus,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('case_id', params.caseId);
-
-  // 6. Register audit log
-  await supabase.from('audit_logs').insert({
-    actor_id: params.moderatorId,
-    action: `MODERATION_${params.actionType}`,
-    entity_type: caseObj.target_type || 'MODERATION_CASE',
-    entity_id: caseObj.target_id || params.caseId,
-    reason: params.reason,
-    new_data: { action_type: params.actionType, case_id: params.caseId, next_status: nextStatus },
+  const { data, error } = await supabase.rpc('execute_moderation_action', {
+    case_id_param: params.caseId,
+    action_type_param: params.actionType,
+    reason_param: params.reason,
+    notes_param: params.notes || null,
+    new_case_status_param: params.newCaseStatus || 'RESOLVED',
   });
 
-  return actionData;
+  if (error) {
+    throw new Error(`Failed to execute moderation action: ${error.message}`);
+  }
+
+  return data;
 }
 
 export async function applyUserSanction(params: {
   userId: string;
-  createdBy: string;
   action: UserSanctionAction;
   reason: string;
   expiresAt?: string | null;
@@ -531,58 +470,19 @@ export async function applyUserSanction(params: {
 }) {
   const supabase = await createClient();
 
-  // 1. Create user_moderation_action row
-  const { data: sanctionData, error: sanctionErr } = await supabase
-    .from('user_moderation_actions')
-    .insert({
-      user_id: params.userId,
-      action: params.action,
-      reason: params.reason,
-      expires_at: params.expiresAt || null,
-      created_by: params.createdBy,
-    })
-    .select()
-    .single();
-
-  if (sanctionErr) {
-    throw new Error(`Failed to apply user sanction: ${sanctionErr.message}`);
-  }
-
-  // 2. Map sanction to moderation_action if linked to case
-  let mappedActionType: ModerationActionType = 'WARN';
-  if (params.action === 'TEMPORARY_RESTRICTION') {
-    mappedActionType = 'RESTRICT_POSTS';
-  } else if (params.action === 'SUSPEND') {
-    mappedActionType = 'SUSPEND';
-  } else if (params.action === 'PERMANENT_SUSPENSION') {
-    mappedActionType = 'BAN';
-  }
-
-  if (params.caseId) {
-    await supabase.from('moderation_actions').insert({
-      case_id: params.caseId,
-      moderator_id: params.createdBy,
-      action_type: mappedActionType,
-      target_user_id: params.userId,
-      reason: params.reason,
-    });
-  }
-
-  // 3. Register audit log
-  await supabase.from('audit_logs').insert({
-    actor_id: params.createdBy,
-    action: `USER_SANCTION_${params.action}`,
-    entity_type: 'USER',
-    entity_id: params.userId,
-    reason: params.reason,
-    new_data: {
-      action: params.action,
-      expires_at: params.expiresAt || null,
-      case_id: params.caseId || null,
-    },
+  const { data, error } = await supabase.rpc('apply_user_sanction', {
+    target_user_id_param: params.userId,
+    action_param: params.action,
+    reason_param: params.reason,
+    expires_at_param: params.expiresAt || null,
+    case_id_param: params.caseId || null,
   });
 
-  return sanctionData;
+  if (error) {
+    throw new Error(`Failed to apply user sanction: ${error.message}`);
+  }
+
+  return data;
 }
 
 export async function saveContentVersion(params: {
@@ -594,7 +494,6 @@ export async function saveContentVersion(params: {
 }) {
   const supabase = await createClient();
 
-  // Fetch current max version_number
   const { data: latest } = await supabase
     .from('content_versions')
     .select('version_number')

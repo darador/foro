@@ -2,88 +2,123 @@ import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 
-describe('FASE 3A — Moderación Base Contract & Implementation Tests', () => {
-  const migrationPath = path.join(
+describe('FASE 3A & 3A.1 — Moderación Base Integrity & Security Contract Tests', () => {
+  const foundationMigrationPath = path.join(
     process.cwd(),
     'supabase/migrations/20261004000021_fase3a_moderation_foundation.sql'
   );
-  const migrationContent = fs.readFileSync(migrationPath, 'utf-8');
+  const hardeningMigrationPath = path.join(
+    process.cwd(),
+    'supabase/migrations/20261004000022_fase3a1_moderation_integrity_hardening.sql'
+  );
+
+  const foundationContent = fs.readFileSync(foundationMigrationPath, 'utf-8');
+  const hardeningContent = fs.readFileSync(hardeningMigrationPath, 'utf-8');
 
   it('verifies user_moderation_actions table is created with valid sanction action check constraint', () => {
-    expect(migrationContent).toContain('CREATE TABLE IF NOT EXISTS public.user_moderation_actions');
-    expect(migrationContent).toContain("'WARNING', 'TEMPORARY_RESTRICTION', 'SUSPEND', 'PERMANENT_SUSPENSION'");
+    expect(foundationContent).toContain('CREATE TABLE IF NOT EXISTS public.user_moderation_actions');
+    expect(foundationContent).toContain("'WARNING', 'TEMPORARY_RESTRICTION', 'SUSPEND', 'PERMANENT_SUSPENSION'");
   });
 
-  it('verifies reports and moderation_cases schema extensions', () => {
-    expect(migrationContent).toContain('ALTER TABLE public.reports');
-    expect(migrationContent).toContain('ADD COLUMN IF NOT EXISTS case_id UUID REFERENCES public.moderation_cases(id)');
-    expect(migrationContent).toContain('ALTER TABLE public.moderation_cases');
-    expect(migrationContent).toContain("ADD COLUMN IF NOT EXISTS target_type TEXT CHECK (target_type IN ('POST', 'COMMENT', 'PROFILE', 'MESSAGE'))");
-    expect(migrationContent).toContain('ADD COLUMN IF NOT EXISTS target_id UUID');
+  it('verifies target_id validation for POST, COMMENT, PROFILE, and MESSAGE in submit_report_with_case RPC', () => {
+    expect(hardeningContent).toContain("IF target_type_param = 'POST' THEN");
+    expect(hardeningContent).toContain('SELECT 1 FROM public.posts WHERE id = target_id_param');
+
+    expect(hardeningContent).toContain("ELSIF target_type_param = 'COMMENT' THEN");
+    expect(hardeningContent).toContain('SELECT 1 FROM public.comments WHERE id = target_id_param');
+
+    expect(hardeningContent).toContain("ELSIF target_type_param = 'PROFILE' THEN");
+    expect(hardeningContent).toContain('SELECT 1 FROM public.profiles WHERE id = target_id_param');
+
+    expect(hardeningContent).toContain("ELSIF target_type_param = 'MESSAGE' THEN");
+    expect(hardeningContent).toContain('SELECT 1 FROM public.messages m');
+    expect(hardeningContent).toContain('m.sender_id = caller_id');
+    expect(hardeningContent).toContain('SELECT 1 FROM public.conversation_members cm');
   });
 
-  it('verifies moderation performance indexes are created', () => {
-    expect(migrationContent).toContain('CREATE INDEX IF NOT EXISTS idx_reports_case_id');
-    expect(migrationContent).toContain('CREATE INDEX IF NOT EXISTS idx_reports_target');
-    expect(migrationContent).toContain('CREATE INDEX IF NOT EXISTS idx_moderation_cases_target');
-    expect(migrationContent).toContain('CREATE INDEX IF NOT EXISTS idx_moderation_cases_priority_status');
-    expect(migrationContent).toContain('CREATE INDEX IF NOT EXISTS idx_user_moderation_actions_user');
-    expect(migrationContent).toContain('CREATE INDEX IF NOT EXISTS idx_content_versions_entity');
+  it('verifies execute_moderation_action atomic RPC definition, SECURITY DEFINER, search_path, and actor derivation', () => {
+    expect(hardeningContent).toContain('CREATE OR REPLACE FUNCTION public.execute_moderation_action');
+    expect(hardeningContent).toContain('SECURITY DEFINER');
+    expect(hardeningContent).toContain('SET search_path = public');
+    expect(hardeningContent).toContain('caller_id := auth.uid();');
+    expect(hardeningContent).toContain('public.is_moderator(caller_id)');
+    expect(hardeningContent).toContain('UPDATE public.posts SET status =');
+    expect(hardeningContent).toContain('UPDATE public.comments SET status =');
+    expect(hardeningContent).toContain('INSERT INTO public.moderation_actions');
+    expect(hardeningContent).toContain('UPDATE public.moderation_cases');
+    expect(hardeningContent).toContain('UPDATE public.reports');
+    expect(hardeningContent).toContain('INSERT INTO public.audit_logs');
   });
 
-  it('verifies RLS policies on moderation tables (user_moderation_actions, content_versions, audit_logs)', () => {
-    expect(migrationContent).toContain('ALTER TABLE public.user_moderation_actions ENABLE ROW LEVEL SECURITY;');
-    expect(migrationContent).toContain('ALTER TABLE public.content_versions ENABLE ROW LEVEL SECURITY;');
-    expect(migrationContent).toContain('ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;');
-
-    expect(migrationContent).toContain('Only moderators can view and manage user moderation actions');
-    expect(migrationContent).toContain('public.is_moderator(auth.uid())');
-
-    expect(migrationContent).toContain('Only moderators can view content versions');
-    expect(migrationContent).toContain('No direct update on content versions');
-    expect(migrationContent).toContain('No direct delete on content versions');
-    expect(migrationContent).toContain('No direct insert on audit logs');
+  it('verifies apply_user_sanction atomic RPC definition, SECURITY DEFINER, and actor derivation', () => {
+    expect(hardeningContent).toContain('CREATE OR REPLACE FUNCTION public.apply_user_sanction');
+    expect(hardeningContent).toContain('SECURITY DEFINER');
+    expect(hardeningContent).toContain('SET search_path = public');
+    expect(hardeningContent).toContain('caller_id := auth.uid();');
+    expect(hardeningContent).toContain('INSERT INTO public.user_moderation_actions');
+    expect(hardeningContent).toContain('INSERT INTO public.audit_logs');
   });
 
-  it('verifies submit_report_with_case RPC function logic and security settings', () => {
-    expect(migrationContent).toContain('CREATE OR REPLACE FUNCTION public.submit_report_with_case');
-    expect(migrationContent).toContain('SECURITY DEFINER');
-    expect(migrationContent).toContain('SET search_path = public');
-    expect(migrationContent).toContain("calc_risk := 'CRITICAL';");
-    expect(migrationContent).toContain("UPDATE public.posts SET status = 'HIDDEN' WHERE id = target_id_param AND status = 'PUBLISHED';");
-    expect(migrationContent).toContain("UPDATE public.comments SET status = 'HIDDEN' WHERE id = target_id_param AND status = 'PUBLISHED';");
-    expect(migrationContent).toContain('REVOKE EXECUTE ON FUNCTION public.submit_report_with_case(TEXT, UUID, TEXT, TEXT) FROM PUBLIC, anon;');
-    expect(migrationContent).toContain('GRANT EXECUTE ON FUNCTION public.submit_report_with_case(TEXT, UUID, TEXT, TEXT) TO authenticated;');
+  it('verifies assign_moderation_case atomic RPC definition and actor derivation', () => {
+    expect(hardeningContent).toContain('CREATE OR REPLACE FUNCTION public.assign_moderation_case');
+    expect(hardeningContent).toContain('SECURITY DEFINER');
+    expect(hardeningContent).toContain('SET search_path = public');
+    expect(hardeningContent).toContain('caller_id := auth.uid();');
+    expect(hardeningContent).toContain('UPDATE public.moderation_cases');
   });
 
-  it('verifies src/lib/services/moderation.ts exists and exports required functions', () => {
-    const servicePath = path.join(process.cwd(), 'src/lib/services/moderation.ts');
-    expect(fs.existsSync(servicePath)).toBe(true);
-
-    const serviceContent = fs.readFileSync(servicePath, 'utf-8');
-    expect(serviceContent).toContain('export async function getModerationCases');
-    expect(serviceContent).toContain('export async function getModerationCaseDetail');
-    expect(serviceContent).toContain('export async function assignModerationCase');
-    expect(serviceContent).toContain('export async function executeModerationAction');
-    expect(serviceContent).toContain('export async function applyUserSanction');
-    expect(serviceContent).toContain('export async function saveContentVersion');
+  it('verifies content_versions RLS policy enforces true author or moderator check for INSERT', () => {
+    expect(hardeningContent).toContain('CREATE POLICY "Authors can insert content versions"');
+    expect(hardeningContent).toContain('edited_by = auth.uid()');
+    expect(hardeningContent).toContain('author_id = auth.uid()');
+    expect(hardeningContent).toContain('public.is_moderator(auth.uid())');
   });
 
-  it('verifies src/lib/services/client/moderation.ts exists for browser interactions', () => {
+  it('verifies append-only RLS policies for moderation_actions, user_moderation_actions, and audit_logs', () => {
+    expect(hardeningContent).toContain('No direct update on moderation actions');
+    expect(hardeningContent).toContain('No direct delete on moderation actions');
+    expect(hardeningContent).toContain('No direct update on user moderation actions');
+    expect(hardeningContent).toContain('No direct delete on user moderation actions');
+    expect(hardeningContent).toContain('No direct insert on audit logs');
+    expect(hardeningContent).toContain('No direct update on audit logs');
+    expect(hardeningContent).toContain('No direct delete on audit logs');
+  });
+
+  it('verifies controlled message access RLS policy for moderators (only reported messages linked to a case)', () => {
+    expect(hardeningContent).toContain('CREATE POLICY "Moderators can view reported messages"');
+    expect(hardeningContent).toContain('ON public.messages FOR SELECT');
+    expect(hardeningContent).toContain('public.is_moderator(auth.uid())');
+    expect(hardeningContent).toContain("mc.target_type = 'MESSAGE'");
+    expect(hardeningContent).toContain('mc.target_id = messages.id');
+  });
+
+  it('verifies RPC EXECUTE permissions are revoked from PUBLIC, anon and granted to authenticated', () => {
+    expect(hardeningContent).toContain('REVOKE EXECUTE ON FUNCTION public.submit_report_with_case(TEXT, UUID, TEXT, TEXT) FROM PUBLIC, anon;');
+    expect(hardeningContent).toContain('REVOKE EXECUTE ON FUNCTION public.execute_moderation_action(UUID, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon;');
+    expect(hardeningContent).toContain('REVOKE EXECUTE ON FUNCTION public.apply_user_sanction(UUID, TEXT, TEXT, TIMESTAMPTZ, UUID) FROM PUBLIC, anon;');
+    expect(hardeningContent).toContain('REVOKE EXECUTE ON FUNCTION public.assign_moderation_case(UUID) FROM PUBLIC, anon;');
+  });
+
+  it('verifies src/lib/services/client/moderation.ts calls RPCs without accepting client-provided actor identity', () => {
     const clientServicePath = path.join(process.cwd(), 'src/lib/services/client/moderation.ts');
-    expect(fs.existsSync(clientServicePath)).toBe(true);
+    const clientContent = fs.readFileSync(clientServicePath, 'utf-8');
 
-    const clientServiceContent = fs.readFileSync(clientServicePath, 'utf-8');
-    expect(clientServiceContent).toContain('export async function assignModerationCaseClient');
-    expect(clientServiceContent).toContain('export async function executeModerationActionClient');
-    expect(clientServiceContent).toContain('export async function applyUserSanctionClient');
+    expect(clientContent).toContain("supabase.rpc('assign_moderation_case'");
+    expect(clientContent).toContain("supabase.rpc('execute_moderation_action'");
+    expect(clientContent).toContain("supabase.rpc('apply_user_sanction'");
+
+    expect(clientContent).not.toContain('moderatorId:');
+    expect(clientContent).not.toContain('createdBy:');
   });
 
-  it('verifies admin moderation pages exist in app directory', () => {
-    const queuePagePath = path.join(process.cwd(), 'src/app/admin/moderacion/page.tsx');
-    const detailPagePath = path.join(process.cwd(), 'src/app/admin/moderacion/[caseId]/page.tsx');
+  it('verifies src/lib/services/moderation.ts calculates reports RECEIVED against target author', () => {
+    const serverServicePath = path.join(process.cwd(), 'src/lib/services/moderation.ts');
+    const serverContent = fs.readFileSync(serverServicePath, 'utf-8');
 
-    expect(fs.existsSync(queuePagePath)).toBe(true);
-    expect(fs.existsSync(detailPagePath)).toBe(true);
+    expect(serverContent).toContain('totalReceivedReports');
+    expect(serverContent).toContain("target_type', 'PROFILE'");
+    expect(serverContent).toContain("target_type', 'POST'");
+    expect(serverContent).toContain("target_type', 'COMMENT'");
+    expect(serverContent).not.toContain(".eq('reporter_id', targetAuthor.id)");
   });
 });

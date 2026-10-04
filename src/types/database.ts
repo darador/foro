@@ -919,6 +919,32 @@ export interface Database {
         }
         Returns: string
       }
+      execute_moderation_action: {
+        Args: {
+          case_id_param: string
+          action_type_param: string
+          reason_param: string
+          notes_param?: string | null
+          new_case_status_param?: string
+        }
+        Returns: string
+      }
+      apply_user_sanction: {
+        Args: {
+          target_user_id_param: string
+          action_param: string
+          reason_param: string
+          expires_at_param?: string | null
+          case_id_param?: string | null
+        }
+        Returns: string
+      }
+      assign_moderation_case: {
+        Args: {
+          case_id_param: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

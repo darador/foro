@@ -77,11 +77,11 @@ export function ModerationCaseDetailView({ currentUserId, detail }: ModerationCa
     setIsAssigning(true);
     setMessage(null);
     try {
-      const updated = await assignModerationCaseClient(caseObj.id, currentUserId);
+      await assignModerationCaseClient(caseObj.id);
       setCaseObj((prev: any) => ({
         ...prev,
         assigned_moderator_id: currentUserId,
-        status: updated.status,
+        status: prev.status === 'OPEN' ? 'IN_REVIEW' : prev.status,
       }));
       setMessage({ type: 'success', text: 'Caso asignado correctamente.' });
     } catch (err: any) {
@@ -102,23 +102,31 @@ export function ModerationCaseDetailView({ currentUserId, detail }: ModerationCa
     setMessage(null);
 
     try {
-      const actionRes = await executeModerationActionClient({
+      const actionId = await executeModerationActionClient({
         caseId: caseObj.id,
-        moderatorId: currentUserId,
         actionType: contentActionType,
         reason: contentActionReason.trim(),
         notes: caseNotes.trim() || undefined,
         newCaseStatus,
       });
 
-      // Update local state
       setCaseObj((prev: any) => ({
         ...prev,
         status: newCaseStatus,
         notes: caseNotes.trim() || prev.notes,
       }));
 
-      setModerationActions((prev: any[]) => [actionRes, ...prev]);
+      setModerationActions((prev: any[]) => [
+        {
+          id: actionId,
+          case_id: caseObj.id,
+          moderator_id: currentUserId,
+          action_type: contentActionType,
+          reason: contentActionReason.trim(),
+          created_at: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
 
       if (targetEntity && (caseObj.target_type === 'POST' || caseObj.target_type === 'COMMENT')) {
         let newStatus = targetEntity.status;
@@ -153,16 +161,24 @@ export function ModerationCaseDetailView({ currentUserId, detail }: ModerationCa
     setMessage(null);
 
     try {
-      const sanctionRes = await applyUserSanctionClient({
+      const sanctionId = await applyUserSanctionClient({
         userId: detail.targetAuthor.id,
-        createdBy: currentUserId,
         action: sanctionAction,
         reason: sanctionReason.trim(),
         expiresAt: sanctionExpiresAt || null,
         caseId: caseObj.id,
       });
 
-      setUserSanctions((prev: any[]) => [sanctionRes, ...prev]);
+      setUserSanctions((prev: any[]) => [
+        {
+          id: sanctionId,
+          action: sanctionAction,
+          reason: sanctionReason.trim(),
+          expires_at: sanctionExpiresAt || null,
+          created_at: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
       setMessage({ type: 'success', text: `Sanción (${sanctionAction}) aplicada al usuario.` });
       setSanctionReason('');
       setSanctionExpiresAt('');
