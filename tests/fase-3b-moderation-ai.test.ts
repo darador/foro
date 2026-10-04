@@ -304,4 +304,75 @@ describe('FASE 3B & 3B.1 — Moderación Automática con IA Integrity & Security
       expect(commentsService).toContain(".eq('author_id', userId)");
     });
   });
+
+  // 6. FASE 3B.5 — SYSTEM CONFIG & RPC SECURITY HARDENING VERIFICATION TESTS
+  describe('6. Fase 3B.5 System Config & RPC Hardening Tests', () => {
+    const migration28Path = path.join(
+      process.cwd(),
+      'supabase/migrations/20261004000028_fase3b5_system_config_security_hardening.sql'
+    );
+    const migration28Content = fs.readFileSync(migration28Path, 'utf-8');
+
+    it('1. Admin can modify MODERATION_AI_ENABLED', () => {
+      expect(migration28Content).toContain('public.is_admin(caller_id)');
+      expect(migration28Content).toContain("ON CONFLICT (key) DO UPDATE");
+    });
+
+    it('2. Normal user CANNOT modify MODERATION_AI_ENABLED', () => {
+      expect(migration28Content).toContain('IF NOT is_privileged THEN');
+      expect(migration28Content).toContain('Acceso denegado. Solo los administradores pueden modificar la configuración del sistema.');
+    });
+
+    it('3. Anonymous user CANNOT modify MODERATION_AI_ENABLED', () => {
+      expect(migration28Content).toContain('REVOKE EXECUTE ON FUNCTION public.sync_ai_moderation_config(BOOLEAN) FROM PUBLIC, anon, authenticated;');
+    });
+
+    it('4. Normal user CANNOT execute configuration RPC', () => {
+      expect(migration28Content).toContain('REVOKE EXECUTE ON FUNCTION public.sync_ai_moderation_config(BOOLEAN) FROM PUBLIC, anon, authenticated;');
+      expect(migration28Content).toContain('GRANT EXECUTE ON FUNCTION public.sync_ai_moderation_config(BOOLEAN) TO service_role;');
+    });
+
+    it('5. If AI=true, normal user CANNOT insert PUBLISHED', () => {
+      const migration27Content = fs.readFileSync(
+        path.join(process.cwd(), 'supabase/migrations/20261004000027_fase3b4_critical_moderation_and_publication_gate.sql'),
+        'utf-8'
+      );
+      expect(migration27Content).toContain('IF NOT is_mod AND ai_enabled THEN');
+      expect(migration27Content).toContain("IF NEW.status = 'PUBLISHED' THEN");
+    });
+
+    it('6. If AI=false, normal user CAN insert PUBLISHED', () => {
+      const migration27Content = fs.readFileSync(
+        path.join(process.cwd(), 'supabase/migrations/20261004000027_fase3b4_critical_moderation_and_publication_gate.sql'),
+        'utf-8'
+      );
+      expect(migration27Content).toContain("ai_enabled := (config_val = 'true');");
+    });
+
+    it('7. Changing AI=true re-enforces PUBLISHED block', () => {
+      expect(migration28Content).toContain("INSERT INTO public.system_config (key, value, updated_at)");
+      expect(migration28Content).toContain("SET value = EXCLUDED.value");
+    });
+
+    it('8. No alternative path exists to modify system_config', () => {
+      expect(migration28Content).toContain('ALTER TABLE public.system_config ENABLE ROW LEVEL SECURITY;');
+      expect(migration28Content).toContain('CREATE POLICY "Only admins can modify system config"');
+      expect(migration28Content).toContain('USING (public.is_admin(auth.uid()))');
+    });
+
+    it('9. Administrative configuration change generates audit log', () => {
+      expect(migration28Content).toContain("INSERT INTO public.audit_logs");
+      expect(migration28Content).toContain("'UPDATE_SYSTEM_CONFIG'");
+      expect(migration28Content).toContain("'MODERATION_AI_ENABLED'");
+    });
+
+    it('10. Publication Gate continues working for service_role and human moderators', () => {
+      const migration27Content = fs.readFileSync(
+        path.join(process.cwd(), 'supabase/migrations/20261004000027_fase3b4_critical_moderation_and_publication_gate.sql'),
+        'utf-8'
+      );
+      expect(migration27Content).toContain("current_setting('request.jwt.claim.role', true) = 'service_role'");
+      expect(migration27Content).toContain('is_mod := public.is_moderator(auth.uid());');
+    });
+  });
 });
