@@ -2,7 +2,14 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 
-describe('Fase 2C-1 — Máquina de Estados y Hardening Final de Mensajería', () => {
+describe('Fase 2C-1 — Corrección RLS de can_send_message & Hardening de Seguridad', () => {
+  const rlsFixMigrationPath = path.join(
+    process.cwd(),
+    'supabase',
+    'migrations',
+    '20261004000013_fase2c1_can_send_message_rls_fix.sql'
+  );
+
   const stateHardeningMigrationPath = path.join(
     process.cwd(),
     'supabase',
@@ -32,27 +39,50 @@ describe('Fase 2C-1 — Máquina de Estados y Hardening Final de Mensajería', (
     'messaging.ts'
   );
 
-  it('Migration 20261004000012_fase2c1_final_state_hardening.sql exists', () => {
-    expect(fs.existsSync(stateHardeningMigrationPath)).toBe(true);
+  it('Migration 20261004000013_fase2c1_can_send_message_rls_fix.sql exists', () => {
+    expect(fs.existsSync(rlsFixMigrationPath)).toBe(true);
   });
 
-  describe('Static AST & SQL Contract Verification for Migration 000012', () => {
+  describe('Static AST & SQL Contract Verification for Migration 000013 (RLS Helper Fix)', () => {
+    const sql13 = fs.readFileSync(rlsFixMigrationPath, 'utf8');
+
+    it('creates is_conversation_active_for_user helper bound strictly to auth.uid() without user_id argument', () => {
+      expect(sql13).toContain('CREATE OR REPLACE FUNCTION public.is_conversation_active_for_user(target_conversation_id UUID)');
+      expect(sql13).toContain('caller_id := auth.uid();');
+      expect(sql13).not.toContain('target_user_id UUID');
+      expect(sql13).toContain("req_status <> 'ACCEPTED'");
+    });
+
+    it('grants execute on is_conversation_active_for_user only to authenticated for RLS evaluation', () => {
+      expect(sql13).toContain('REVOKE EXECUTE ON FUNCTION public.is_conversation_active_for_user(UUID) FROM PUBLIC, anon;');
+      expect(sql13).toContain('GRANT EXECUTE ON FUNCTION public.is_conversation_active_for_user(UUID) TO authenticated;');
+    });
+
+    it('ensures can_send_message remains revoked from PUBLIC, anon, AND authenticated', () => {
+      expect(sql13).toContain('REVOKE EXECUTE ON FUNCTION public.can_send_message(UUID, UUID) FROM PUBLIC, anon, authenticated;');
+    });
+
+    it('rebinds messages SELECT and INSERT RLS policies to use is_conversation_active_for_user', () => {
+      expect(sql13).toContain('CREATE POLICY "Conversation members can view messages"');
+      expect(sql13).toContain('public.is_conversation_active_for_user(conversation_id)');
+      expect(sql13).toContain('CREATE POLICY "Conversation members can send messages if request accepted and not blocked"');
+      expect(sql13).toContain('sender_id = auth.uid()');
+    });
+  });
+
+  describe('Static AST & SQL Contract Verification for State Machine (000012)', () => {
     const sql12 = fs.readFileSync(stateHardeningMigrationPath, 'utf8');
 
-    it('enforces strict PENDING status check in block_message_request', () => {
+    it('enforces strict PENDING status check in block_message_request (rejecting ACCEPTED, REJECTED, BLOCKED transitions)', () => {
       expect(sql12).toContain('CREATE OR REPLACE FUNCTION public.block_message_request');
       expect(sql12).toContain("req_record.status <> 'PENDING'");
       expect(sql12).toContain("Only PENDING message requests can be blocked.");
     });
-
-    it('revokes execution of can_send_message from PUBLIC, anon, AND authenticated', () => {
-      expect(sql12).toContain('REVOKE EXECUTE ON FUNCTION public.can_send_message(UUID, UUID) FROM PUBLIC, anon, authenticated;');
-    });
   });
 
-  describe('State Machine & Transitions Verification Across RPC Definitions', () => {
-    const sql11 = fs.readFileSync(correctionsMigrationPath, 'utf8');
+  describe('State Machine & Privacy Contract Verification Across All Messaging Migrations', () => {
     const sql10 = fs.readFileSync(baseMigrationPath, 'utf8');
+    const sql11 = fs.readFileSync(correctionsMigrationPath, 'utf8');
     const allSql = sql10 + '\n' + sql11 + '\n';
 
     it('create_message_request creates requests strictly in PENDING status', () => {
@@ -74,6 +104,10 @@ describe('Fase 2C-1 — Máquina de Estados y Hardening Final de Mensajería', (
       expect(sql11).toContain('CREATE POLICY "No direct update on message_requests"');
       expect(sql11).toContain('WITH CHECK (false)');
       expect(sql11).toContain('USING (false)');
+    });
+
+    it('is_blocked_between is revoked from client execution', () => {
+      expect(sql11).toContain('REVOKE EXECUTE ON FUNCTION public.is_blocked_between(UUID, UUID) FROM PUBLIC, anon, authenticated;');
     });
   });
 

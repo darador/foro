@@ -595,6 +595,12 @@ export interface Database {
         }
         Returns: boolean
       }
+      is_conversation_active_for_user: {
+        Args: {
+          target_conversation_id: string
+        }
+        Returns: boolean
+      }
       increment_post_views: {
         Args: {
           target_post_id: string
