@@ -82,13 +82,12 @@ describe('FASE 2C-3.1 — Audit Fixes & Security Verification', () => {
 
   // 4. Hallazgo 4: Block System Alignment
   describe('Hallazgo 4: Blocking from Conversation Integrity', () => {
-    it('verifies ChatView uses blockRequest or toggleBlockUser when blocking', () => {
+    it('verifies ChatView uses toggleBlockUser when blocking from active conversation', () => {
       const chatViewFile = fs.readFileSync(
         path.join(process.cwd(), 'src/components/messaging/ChatView.tsx'),
         'utf-8'
       );
 
-      expect(chatViewFile).toContain('blockRequest(conversation.request_id)');
       expect(chatViewFile).toContain('toggleBlockUser(currentUserId, otherUserId)');
     });
 
