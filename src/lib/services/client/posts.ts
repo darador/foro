@@ -6,6 +6,10 @@ import type { Database } from '@/types/database';
 export async function createPost(formValues: PostFormValues, authorId: string) {
   const supabase = createClient();
 
+  const isAiEnabled =
+    process.env.NEXT_PUBLIC_MODERATION_AI_ENABLED === 'true' ||
+    process.env.MODERATION_AI_ENABLED === 'true';
+
   const baseSlug = slugify(formValues.title);
   const uniqueSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 8)}`;
   const sanitizedContent = sanitizeHtml(formValues.content);
@@ -21,7 +25,7 @@ export async function createPost(formValues: PostFormValues, authorId: string) {
       content: sanitizedContent,
       province: formValues.province || null,
       city: formValues.city || null,
-      status: 'PUBLISHED',
+      status: isAiEnabled ? 'PENDING_REVIEW' : 'PUBLISHED',
     })
     .select()
     .single();
@@ -78,9 +82,17 @@ export async function createPost(formValues: PostFormValues, authorId: string) {
 export async function updatePost(postId: string, formValues: Partial<PostFormValues>, userId: string) {
   const supabase = createClient();
 
+  const isAiEnabled =
+    process.env.NEXT_PUBLIC_MODERATION_AI_ENABLED === 'true' ||
+    process.env.MODERATION_AI_ENABLED === 'true';
+
   const updateData: Database['public']['Tables']['posts']['Update'] = {
     updated_at: new Date().toISOString(),
   };
+
+  if (isAiEnabled) {
+    updateData.status = 'PENDING_REVIEW';
+  }
 
   if (formValues.title) {
     updateData.title = formValues.title.trim();

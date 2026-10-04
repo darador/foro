@@ -5,6 +5,10 @@ import type { CommentFormValues } from '@/lib/validations/comment';
 export async function createComment(formValues: CommentFormValues, authorId: string) {
   const supabase = createClient();
 
+  const isAiEnabled =
+    process.env.NEXT_PUBLIC_MODERATION_AI_ENABLED === 'true' ||
+    process.env.MODERATION_AI_ENABLED === 'true';
+
   let depth = 1;
 
   if (formValues.parent_id) {
@@ -29,7 +33,7 @@ export async function createComment(formValues: CommentFormValues, authorId: str
       parent_id: formValues.parent_id || null,
       content: sanitizedContent,
       depth,
-      status: 'PUBLISHED',
+      status: isAiEnabled ? 'PENDING_REVIEW' : 'PUBLISHED',
     })
     .select(`
       id,
@@ -63,14 +67,24 @@ export async function createComment(formValues: CommentFormValues, authorId: str
 export async function updateComment(commentId: string, content: string, userId: string) {
   const supabase = createClient();
 
+  const isAiEnabled =
+    process.env.NEXT_PUBLIC_MODERATION_AI_ENABLED === 'true' ||
+    process.env.MODERATION_AI_ENABLED === 'true';
+
   const sanitizedContent = sanitizeHtml(content);
+
+  const updateData: any = {
+    content: sanitizedContent,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (isAiEnabled) {
+    updateData.status = 'PENDING_REVIEW';
+  }
 
   const { data: updatedComment, error } = await supabase
     .from('comments')
-    .update({
-      content: sanitizedContent,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq('id', commentId)
     .eq('author_id', userId)
     .select()

@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { z } from 'zod';
 
 export const ALLOWED_AI_FLAGS = [
@@ -81,7 +81,7 @@ Responde ÚNICAMENTE con un JSON válido con este esquema exacto:
 }
 
 export async function analyzeContentWithAi(params: AnalyzeContentParams) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const isEnabled = process.env.MODERATION_AI_ENABLED === 'true';
   const modelName = process.env.MODERATION_AI_MODEL || 'foro-ai-v1';
@@ -181,13 +181,29 @@ export async function analyzeContentWithAi(params: AnalyzeContentParams) {
     throw new Error(`Failed to record AI result: ${rpcError.message}`);
   }
 
-  // 5. Update post status if LOW risk and post was in PENDING_REVIEW
-  if (classification.risk_level === 'LOW' && params.entityType === 'POST') {
-    await supabase
-      .from('posts')
-      .update({ status: 'PUBLISHED', updated_at: new Date().toISOString() })
-      .eq('id', params.entityId)
-      .eq('status', 'PENDING_REVIEW');
+  // 5. Update post/comment status based on risk_level
+  if (classification.risk_level === 'LOW') {
+    if (params.entityType === 'POST') {
+      await supabase
+        .from('posts')
+        .update({ status: 'PUBLISHED', updated_at: new Date().toISOString() })
+        .eq('id', params.entityId)
+        .eq('status', 'PENDING_REVIEW');
+    } else if (params.entityType === 'COMMENT') {
+      await supabase
+        .from('comments')
+        .update({ status: 'PUBLISHED', updated_at: new Date().toISOString() })
+        .eq('id', params.entityId)
+        .eq('status', 'PENDING_REVIEW');
+    }
+  } else if (classification.risk_level === 'CRITICAL') {
+    if (params.entityType === 'COMMENT') {
+      await supabase
+        .from('comments')
+        .update({ status: 'HIDDEN', updated_at: new Date().toISOString() })
+        .eq('id', params.entityId)
+        .in('status', ['PUBLISHED', 'PENDING_REVIEW']);
+    }
   }
 
   return {

@@ -109,12 +109,49 @@ describe('FASE 3B & 3B.1 — Moderación Automática con IA Integrity & Security
       expect(actionContent).not.toContain('risk_level');
     });
 
-    it('verifies moderation-ai.ts server service fetches real content from DB', () => {
+    it('verifies moderation-ai.ts server service fetches real content from DB and uses createAdminClient', () => {
       const servicePath = path.join(process.cwd(), 'src/lib/services/moderation-ai.ts');
       const serviceContent = fs.readFileSync(servicePath, 'utf-8');
 
       expect(serviceContent).toContain("from('posts')");
       expect(serviceContent).toContain("from('comments')");
+      expect(serviceContent).toContain("import { createAdminClient } from '@/lib/supabase/admin';");
+      expect(serviceContent).toContain('createAdminClient()');
+    });
+  });
+
+  // 4. PRIVILEGED EXECUTION CONTEXT & PUBLICATION GATE HARDENING
+  describe('4. Privileged AI Execution Context & Publication Gate', () => {
+    it('verifies createAdminClient prevents client-side execution in browser context', () => {
+      const adminPath = path.join(process.cwd(), 'src/lib/supabase/admin.ts');
+      const adminContent = fs.readFileSync(adminPath, 'utf-8');
+
+      expect(adminContent).toContain("typeof window !== 'undefined'");
+      expect(adminContent).toContain('Service Role client cannot be executed in the browser.');
+    });
+
+    it('verifies createPost and createComment use PENDING_REVIEW when AI is enabled', () => {
+      const postsService = fs.readFileSync(path.join(process.cwd(), 'src/lib/services/client/posts.ts'), 'utf-8');
+      const commentsService = fs.readFileSync(path.join(process.cwd(), 'src/lib/services/client/comments.ts'), 'utf-8');
+
+      expect(postsService).toContain("status: isAiEnabled ? 'PENDING_REVIEW' : 'PUBLISHED'");
+      expect(commentsService).toContain("status: isAiEnabled ? 'PENDING_REVIEW' : 'PUBLISHED'");
+    });
+
+    it('verifies updatePost and updateComment reset status to PENDING_REVIEW on edition when AI is enabled', () => {
+      const postsService = fs.readFileSync(path.join(process.cwd(), 'src/lib/services/client/posts.ts'), 'utf-8');
+      const commentsService = fs.readFileSync(path.join(process.cwd(), 'src/lib/services/client/comments.ts'), 'utf-8');
+
+      expect(postsService).toContain("updateData.status = 'PENDING_REVIEW'");
+      expect(commentsService).toContain("updateData.status = 'PENDING_REVIEW'");
+    });
+
+    it('verifies analyzeContentWithAi updates posts and comments status to PUBLISHED on LOW risk', () => {
+      const serviceContent = fs.readFileSync(path.join(process.cwd(), 'src/lib/services/moderation-ai.ts'), 'utf-8');
+
+      expect(serviceContent).toContain("if (classification.risk_level === 'LOW')");
+      expect(serviceContent).toContain(".update({ status: 'PUBLISHED', updated_at: new Date().toISOString() })");
+      expect(serviceContent).toContain(".eq('status', 'PENDING_REVIEW')");
     });
   });
 });
