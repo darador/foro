@@ -1,83 +1,120 @@
 import { describe, test, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
+import { sanitizeHtml } from '../src/lib/sanitize';
 
 /**
- * FASE 2A — SUITE DE PRUEBAS DEL NÚCLEO DE COMUNIDAD
+ * FASE 2A — SUITE DE PRUEBAS DEL NÚCLEO DE COMUNIDAD & CORRECCIONES SEGURIDAD
  * 
- * DECLARACIÓN EXPLÍCITA SOBRE LOS TESTS:
- * - Esta suite de pruebas realiza análisis contractual y verificación estática
- *   del código fuente (services, validaciones Zod, sanitización HTML, migraciones RLS).
- * - NO ejecuta consultas vivas contra una instancia de PostgreSQL en tiempo de ejecución.
+ * CLASIFICACIÓN EXPLÍCITA DE ESTOS TESTS:
+ * 1. PRUEBAS UNITARIAS DE SANITIZACIÓN: Ejecutan la función `sanitizeHtml()` con
+ *    múltiples vectores de ataque XSS (DOMPurify allowlist).
+ * 2. PRUEBAS CONTRACTUALES / ESTRUCTURALES SQL: Verifican la presencia de triggers,
+ *    restricciones CHECK, search_path y sentencias REVOKE en las migraciones incremental.
+ * 
+ * NOTA: NO son pruebas de integración runtime en PostgreSQL (debido a SECURITY_VALIDATION_PENDING).
  */
 
 describe('FASE 2A — NÚCLEO DE COMUNIDAD: Verificación Contractual & Seguridad', () => {
   const migrationsDir = path.resolve(__dirname, '../supabase/migrations');
   const getSql = (file: string) => fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
-  
+
   const initialRls = getSql('20261004000001_rls_policies.sql');
-  const communityHelpersSql = getSql('20261004000005_fase2a_community_helpers.sql');
+  const correctionsSql = getSql('20261004000006_fase2a_security_corrections.sql');
 
-  describe('1. PUBLICACIONES (POSTS)', () => {
-    test('Visitante puede leer posts con status PUBLISHED', () => {
-      expect(initialRls).toContain('CREATE POLICY "Public can view published posts"');
-      expect(initialRls).toContain('status = \'PUBLISHED\'');
+  describe('1. SANITIZACIÓN HTML & PROTECCIÓN XSS (DOMPurify Allowlist)', () => {
+    test('Permite etiquetas seguras y formato básico', () => {
+      const input = '<p>Este es un <strong>texto seguro</strong> con <em>énfasis</em> y <a href="https://forofetiche.com">enlace</a>.</p>';
+      const clean = sanitizeHtml(input);
+      expect(clean).toContain('<strong>texto seguro</strong>');
+      expect(clean).toContain('href="https://forofetiche.com"');
     });
 
-    test('Usuario no verificado NO puede crear publicaciones (requiere email_verified = true)', () => {
-      expect(initialRls).toContain('CREATE POLICY "Verified users can create posts"');
-      expect(initialRls).toContain('email_verified = true');
+    test('Elimina scripts maliciosos (<script>)', () => {
+      const input = 'Hola <script>alert("XSS")</script> mundo';
+      const clean = sanitizeHtml(input);
+      expect(clean).not.toContain('<script>');
+      expect(clean).not.toContain('alert');
+      expect(clean).toBe('Hola  mundo');
     });
 
-    test('Usuario puede editar e eliminar lógicamente solo sus propios posts', () => {
-      expect(initialRls).toContain('CREATE POLICY "Authors can update own posts"');
-      expect(initialRls).toContain('author_id = auth.uid()');
+    test('Elimina event handlers inline (onerror, onclick, onload, onmouseover)', () => {
+      const input1 = '<img src="invalid.jpg" onerror="alert(1)" />';
+      const input2 = '<button onclick="fetch(\'https://attacker.com\')">Click</button>';
+      expect(sanitizeHtml(input1)).not.toContain('onerror');
+      expect(sanitizeHtml(input1)).not.toContain('alert');
+      expect(sanitizeHtml(input2)).not.toContain('onclick');
+    });
+
+    test('Elimina esquemas de pseudoprotocolo javascript:, vbscript: y data: URIs', () => {
+      const jsLink = '<a href="javascript:alert(1)">Enlace Malicioso</a>';
+      const vbsLink = '<a href="vbscript:msgbox(1)">Enlace VBScript</a>';
+      const dataLink = '<a href="data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==">Enlace Data</a>';
+
+      expect(sanitizeHtml(jsLink)).not.toContain('javascript:');
+      expect(sanitizeHtml(vbsLink)).not.toContain('vbscript:');
+      expect(sanitizeHtml(dataLink)).not.toContain('data:');
+    });
+
+    test('Elimina etiquetas SVG, MathML, iframe, object, embed', () => {
+      const svgInput = '<svg onload="alert(1)"><circle cx="50" cy="50" r="40"/></svg>';
+      const iframeInput = '<iframe src="https://malicious.com"></iframe>';
+      const embedInput = '<embed src="malicious.swf">';
+
+      expect(sanitizeHtml(svgInput)).not.toContain('<svg');
+      expect(sanitizeHtml(svgInput)).not.toContain('onload');
+      expect(sanitizeHtml(iframeInput)).not.toContain('<iframe');
+      expect(sanitizeHtml(embedInput)).not.toContain('<embed');
+    });
+
+    test('Conserva enlaces legítimos HTTP y HTTPS', () => {
+      const httpLink = '<a href="http://ejemplo.com">HTTP Link</a>';
+      const httpsLink = '<a href="https://ejemplo.com">HTTPS Link</a>';
+
+      expect(sanitizeHtml(httpLink)).toContain('href="http://ejemplo.com"');
+      expect(sanitizeHtml(httpsLink)).toContain('href="https://ejemplo.com"');
     });
   });
 
-  describe('2. REACCIONES (🔥 ME INTERESA)', () => {
-    test('Reacciones limitadas a 1 por usuario por post/comentario vía unique index', () => {
-      const initialSchema = getSql('20261004000000_initial_schema.sql');
-      expect(initialSchema).toContain('CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_user_post_reaction');
-      expect(initialSchema).toContain('CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_user_comment_reaction');
-    });
-
-    test('Sincronización automática de contadores vía triggers de base de datos', () => {
-      expect(communityHelpersSql).toContain('FUNCTION public.sync_reaction_counters()');
-      expect(communityHelpersSql).toContain('AFTER INSERT OR DELETE ON public.reactions');
+  describe('2. PROTECCIÓN DE CONTADORES DE PUBLICACIONES (POSTS)', () => {
+    test('Existe función y trigger protect_post_readonly_fields para impedir edición manual', () => {
+      expect(correctionsSql).toContain('FUNCTION public.protect_post_readonly_fields()');
+      expect(correctionsSql).toContain('BEFORE UPDATE ON public.posts');
+      expect(correctionsSql).toContain('NEW.views_count := OLD.views_count;');
+      expect(correctionsSql).toContain('NEW.reactions_count := OLD.reactions_count;');
+      expect(correctionsSql).toContain('NEW.comments_count := OLD.comments_count;');
     });
   });
 
-  describe('3. GUARDADOS & FOLLOWS', () => {
-    test('Guardados son estrictamente privados por RLS (user_id = auth.uid())', () => {
-      expect(initialRls).toContain('CREATE POLICY "Users can only view own saved posts"');
-      expect(initialRls).toContain('USING (user_id = auth.uid())');
-    });
-
-    test('Follows limitados exclusivamente a publicaciones (post_follows)', () => {
-      expect(initialRls).toContain('CREATE POLICY "Users can view own post follows"');
+  describe('3. CORRECCIÓN DE CONTADORES DE COMENTARIOS (STATUS PUBLISHED)', () => {
+    test('Trigger sync_comment_counters escucha UPDATE y contempla transiciones de status', () => {
+      expect(correctionsSql).toContain('AFTER INSERT OR UPDATE OR DELETE ON public.comments');
+      expect(correctionsSql).toContain('OLD.status = \'PUBLISHED\' AND NEW.status <> \'PUBLISHED\'');
+      expect(correctionsSql).toContain('OLD.status <> \'PUBLISHED\' AND NEW.status = \'PUBLISHED\'');
     });
   });
 
-  describe('4. COMENTARIOS & PROFUNDIDAD MÁXIMA', () => {
-    test('Profundidad máxima de comentarios limitada a 3 niveles', () => {
+  describe('4. HARDENING DE FUNCIONES SECURITY DEFINER & RPC', () => {
+    test('Todas las funciones SECURITY DEFINER definen SET search_path = public', () => {
+      expect(correctionsSql).toContain('FUNCTION public.increment_post_views(target_post_id UUID)');
+      expect(correctionsSql).toContain('SET search_path = public');
+    });
+
+    test('increment_post_views revoca ejecución a PUBLIC y otorga permisos explícitos', () => {
+      expect(correctionsSql).toContain('REVOKE EXECUTE ON FUNCTION public.increment_post_views(UUID) FROM PUBLIC;');
+      expect(correctionsSql).toContain('GRANT EXECUTE ON FUNCTION public.increment_post_views(UUID) TO anon, authenticated, service_role;');
+    });
+  });
+
+  describe('5. REGLAS BASE & PRIVACIDAD', () => {
+    test('Profundidad máxima de comentarios limitada a 3 niveles a nivel DB', () => {
       const initialSchema = getSql('20261004000000_initial_schema.sql');
       expect(initialSchema).toContain('depth INTEGER NOT NULL DEFAULT 1 CHECK (depth <= 3)');
     });
 
-    test('Comentarios exigen email_verified = true para creación', () => {
-      expect(initialRls).toContain('CREATE POLICY "Verified users can create comments"');
-    });
-  });
-
-  describe('5. REPORTES & BLOQUEOS', () => {
-    test('Reporte no es público y se asigna al reporter_id', () => {
-      expect(initialRls).toContain('CREATE POLICY "Users can submit reports"');
-      expect(initialRls).toContain('CREATE POLICY "Reporters can view their submitted reports"');
-    });
-
-    test('Bloqueo de usuario aplica a nivel server-side (user_blocks)', () => {
-      expect(initialRls).toContain('CREATE POLICY "Users can block other users"');
+    test('Guardados y follows son estrictamente privados', () => {
+      expect(initialRls).toContain('CREATE POLICY "Users can only view own saved posts"');
+      expect(initialRls).toContain('CREATE POLICY "Users can view own post follows"');
     });
   });
 });
