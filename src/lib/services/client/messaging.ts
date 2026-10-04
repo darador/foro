@@ -142,7 +142,7 @@ export async function sendMessageClient(conversationId: string, content: string)
 /**
  * Fetches messages for a conversation (Client side re-fetch).
  */
-export async function getConversationMessagesClient(conversationId: string) {
+export async function getConversationMessagesClient(conversationId: string, limit = 50) {
   const supabase = createClient();
 
   const { data, error } = await supabase
@@ -157,13 +157,14 @@ export async function getConversationMessagesClient(conversationId: string) {
       sender:profiles!messages_sender_id_fkey(id, alias, avatar_url)
     `)
     .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false })
+    .limit(limit);
 
   if (error) {
     console.error('Error in getConversationMessagesClient:', error);
     return [];
   }
 
-  return data || [];
+  return (data || []).reverse();
 }
 

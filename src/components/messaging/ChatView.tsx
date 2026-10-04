@@ -12,7 +12,7 @@ import {
   Flag,
   Loader2,
 } from 'lucide-react';
-import { sendMessageClient, deleteMessage } from '@/lib/services/client/messaging';
+import { sendMessageClient, deleteMessage, blockRequest } from '@/lib/services/client/messaging';
 import { toggleBlockUser } from '@/lib/services/interactions';
 import { ReportModal } from '@/components/common/ReportModal';
 import { formatDate } from '@/lib/utils';
@@ -123,7 +123,11 @@ export function ChatView({
     if (!otherUserId || blocking) return;
     setBlocking(true);
     try {
-      await toggleBlockUser(currentUserId, otherUserId);
+      if (conversation.request_id) {
+        await blockRequest(conversation.request_id);
+      } else {
+        await toggleBlockUser(currentUserId, otherUserId);
+      }
       setIsBlocked(true);
       setConfirmBlockOpen(false);
     } catch (err: any) {
