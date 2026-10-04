@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
 import { z } from 'zod';
-import type { ModerationPriority } from '@/types/database';
 
 export const ALLOWED_AI_FLAGS = [
   'POSSIBLE_MINOR',
@@ -16,22 +15,35 @@ export const ALLOWED_AI_FLAGS = [
   'AI_UNAVAILABLE',
 ] as const;
 
-export type ModerationAiFlag = (typeof ALLOWED_AI_FLAGS)[number];
+export const ModerationAiFlagSchema = z.enum(ALLOWED_AI_FLAGS);
+export type ModerationAiFlag = z.infer<typeof ModerationAiFlagSchema>;
 
-export const ModerationAiResponseSchema = z.object({
-  risk_level: z.enum(['LOW', 'REVIEW', 'CRITICAL']),
-  flags: z.array(z.string()).default([]),
-  confidence: z.number().min(0).max(1),
-  reason: z.string().min(1).max(500),
-});
+export const ModerationAiResponseSchema = z
+  .object({
+    risk_level: z.enum(['LOW', 'REVIEW', 'CRITICAL']),
+    flags: z.array(ModerationAiFlagSchema).default([]),
+    confidence: z.number().min(0).max(1),
+    reason: z.string().min(1).max(500),
+  })
+  .refine(
+    (data) => {
+      // Inconsistency check: LOW risk cannot contain critical violation flags
+      if (data.risk_level === 'LOW') {
+        const hasCriticalFlag = data.flags.some((f) =>
+          ['POSSIBLE_MINOR', 'NON_CONSENSUAL_CONTENT', 'EXTORTION'].includes(f)
+        );
+        if (hasCriticalFlag) return false;
+      }
+      return true;
+    },
+    { message: 'Inconsistent AI classification: LOW risk level cannot include critical violation flags' }
+  );
 
 export type ModerationAiResponse = z.infer<typeof ModerationAiResponseSchema>;
 
 export interface AnalyzeContentParams {
   entityType: 'POST' | 'COMMENT';
   entityId: string;
-  title?: string | null;
-  content: string;
   versionId?: string | null;
 }
 
@@ -74,7 +86,36 @@ export async function analyzeContentWithAi(params: AnalyzeContentParams) {
   const isEnabled = process.env.MODERATION_AI_ENABLED === 'true';
   const modelName = process.env.MODERATION_AI_MODEL || 'foro-ai-v1';
 
-  // 1. Idempotency Check: Don't analyze the exact same version/entity twice if already recorded
+  // 1. Fetch real content from server database (never trust client-supplied text/title)
+  let title: string | null = null;
+  let content = '';
+
+  if (params.entityType === 'POST') {
+    const { data: post, error: postErr } = await supabase
+      .from('posts')
+      .select('id, title, content, status')
+      .eq('id', params.entityId)
+      .maybeSingle();
+
+    if (postErr || !post) {
+      throw new Error(`Target post not found for AI analysis: ${params.entityId}`);
+    }
+    title = post.title;
+    content = post.content;
+  } else if (params.entityType === 'COMMENT') {
+    const { data: comment, error: commErr } = await supabase
+      .from('comments')
+      .select('id, content, status')
+      .eq('id', params.entityId)
+      .maybeSingle();
+
+    if (commErr || !comment) {
+      throw new Error(`Target comment not found for AI analysis: ${params.entityId}`);
+    }
+    content = comment.content;
+  }
+
+  // 2. Real Database Idempotency Check: Don't analyze exact same version twice
   if (params.versionId) {
     const { data: existing } = await supabase
       .from('moderation_ai_results')
@@ -89,7 +130,7 @@ export async function analyzeContentWithAi(params: AnalyzeContentParams) {
     }
   }
 
-  // 2. Disabled Fallback: If AI is disabled in environment, return cleanly
+  // 3. Disabled Fallback: If AI is disabled in environment, return cleanly
   if (!isEnabled) {
     return { status: 'DISABLED', result: null };
   }
@@ -97,31 +138,24 @@ export async function analyzeContentWithAi(params: AnalyzeContentParams) {
   let classification: ModerationAiResponse;
 
   try {
-    // Call provider abstraction or mock provider
-    const providerResponse = await callAiProvider({
-      title: params.title,
-      content: params.content,
+    // Call provider abstraction (No silent fallback to mock in production!)
+    const rawProviderResponse = await callAiProvider({
+      title,
+      content,
       entityType: params.entityType,
     });
 
-    // Validate schema
-    const parsed = ModerationAiResponseSchema.safeParse(providerResponse);
+    // Strict Zod schema & business consistency validation
+    const parsed = ModerationAiResponseSchema.safeParse(rawProviderResponse);
     if (!parsed.success) {
+      console.error('AI response Zod schema validation failed:', parsed.error.format());
       throw new Error('AI response schema validation failed');
     }
 
-    // Filter valid flags
-    const validFlags = parsed.data.flags.filter((f) =>
-      ALLOWED_AI_FLAGS.includes(f as ModerationAiFlag)
-    );
-
-    classification = {
-      ...parsed.data,
-      flags: validFlags,
-    };
+    classification = parsed.data;
   } catch (err: any) {
-    console.error('AI Moderation provider error/fail-safe triggered:', err);
-    // FAIL-SAFE RULE: If AI fails/timeouts/invalid, treat as REVIEW with AI_UNAVAILABLE flag
+    console.error('AI Moderation provider error or fail-safe triggered:', err.message);
+    // MANDATORY FAIL-SAFE RULE: Provider error = REVIEW + AI_UNAVAILABLE + confidence 0
     classification = {
       risk_level: 'REVIEW',
       flags: ['AI_UNAVAILABLE'],
@@ -130,7 +164,7 @@ export async function analyzeContentWithAi(params: AnalyzeContentParams) {
     };
   }
 
-  // 3. Record result in database via atomic RPC
+  // 4. Record result in database via atomic RPC (executed server-side)
   const { data: aiResultId, error: rpcError } = await supabase.rpc('record_ai_moderation_result', {
     entity_type_param: params.entityType,
     entity_id_param: params.entityId,
@@ -145,6 +179,15 @@ export async function analyzeContentWithAi(params: AnalyzeContentParams) {
   if (rpcError) {
     console.error('Error recording AI moderation result RPC:', rpcError);
     throw new Error(`Failed to record AI result: ${rpcError.message}`);
+  }
+
+  // 5. Update post status if LOW risk and post was in PENDING_REVIEW
+  if (classification.risk_level === 'LOW' && params.entityType === 'POST') {
+    await supabase
+      .from('posts')
+      .update({ status: 'PUBLISHED', updated_at: new Date().toISOString() })
+      .eq('id', params.entityId)
+      .eq('status', 'PENDING_REVIEW');
   }
 
   return {
@@ -162,48 +205,53 @@ async function callAiProvider(input: {
   content: string;
   entityType: 'POST' | 'COMMENT';
 }): Promise<any> {
+  const provider = process.env.MODERATION_AI_PROVIDER;
   const apiKey = process.env.MODERATION_AI_API_KEY || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
 
-  if (!apiKey) {
-    // Default heuristic fallback for testing/dev if no API key is provided
+  // Use mock ONLY in test or explicit mock environment
+  if (provider === 'mock' || process.env.NODE_ENV === 'test') {
     return mockClassifierLogic(input);
   }
 
-  // If real API key is configured in env, call provider endpoint
+  // If no API key configured in production when AI is enabled -> Throw error to trigger FAIL-SAFE
+  if (!apiKey) {
+    throw new Error('AI API Key is missing for production provider');
+  }
+
   const textToAnalyze = input.title ? `${input.title}\n\n${input.content}` : input.content;
 
-  try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: process.env.MODERATION_AI_MODEL || 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: buildSystemPrompt() },
-          { role: 'user', content: textToAnalyze },
-        ],
-        temperature: 0.1,
-        response_format: { type: 'json_object' },
-      }),
-    });
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: process.env.MODERATION_AI_MODEL || 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: buildSystemPrompt() },
+        { role: 'user', content: textToAnalyze },
+      ],
+      temperature: 0.1,
+      response_format: { type: 'json_object' },
+    }),
+  });
 
-    if (!res.ok) {
-      throw new Error(`Provider HTTP error: ${res.status}`);
-    }
-
-    const data = await res.json();
-    const contentStr = data.choices?.[0]?.message?.content;
-    return JSON.parse(contentStr);
-  } catch (err) {
-    return mockClassifierLogic(input);
+  if (!res.ok) {
+    throw new Error(`Provider HTTP error ${res.status}: ${res.statusText}`);
   }
+
+  const data = await res.json();
+  const contentStr = data.choices?.[0]?.message?.content;
+  if (!contentStr) {
+    throw new Error('Empty response content from provider');
+  }
+
+  return JSON.parse(contentStr);
 }
 
 /**
- * Deterministic Mock Classifier for development, testing, and fallback
+ * Deterministic Mock Classifier for development and test suites only
  */
 export function mockClassifierLogic(input: {
   title?: string | null;
@@ -241,7 +289,6 @@ export function mockClassifierLogic(input: {
     };
   }
 
-  // Adult consensual sexual content -> LOW
   return {
     risk_level: 'LOW',
     flags: fullText.includes('bdsm') || fullText.includes('swinger') || fullText.includes('fetiche') ? ['SEXUAL_CONTENT'] : [],

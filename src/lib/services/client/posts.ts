@@ -64,13 +64,11 @@ export async function createPost(formValues: PostFormValues, authorId: string) {
     }
   }
 
-  // Trigger server-side AI analysis asynchronously
+  // Trigger server-side AI analysis asynchronously (server fetches real content from DB)
   import('@/app/actions/moderation-ai').then(({ runAiContentModerationAction }) => {
     runAiContentModerationAction({
       entityType: 'POST',
       entityId: post.id,
-      title: post.title,
-      content: post.content,
     }).catch((err) => console.error('AI moderation trigger error on post creation:', err));
   });
 
@@ -112,13 +110,26 @@ export async function updatePost(postId: string, formValues: Partial<PostFormVal
     throw new Error(error.message);
   }
 
+  // Create content version for edition
+  const { data: version } = await supabase
+    .from('content_versions')
+    .insert({
+      entity_type: 'POST',
+      entity_id: updatedPost.id,
+      version_number: Date.now(),
+      title: updatedPost.title,
+      content: updatedPost.content,
+      edited_by: userId,
+    })
+    .select('id')
+    .maybeSingle();
+
   // Trigger server-side AI analysis asynchronously on post update
   import('@/app/actions/moderation-ai').then(({ runAiContentModerationAction }) => {
     runAiContentModerationAction({
       entityType: 'POST',
       entityId: updatedPost.id,
-      title: updatedPost.title,
-      content: updatedPost.content,
+      versionId: version?.id || null,
     }).catch((err) => console.error('AI moderation trigger error on post update:', err));
   });
 

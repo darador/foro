@@ -54,7 +54,6 @@ export async function createComment(formValues: CommentFormValues, authorId: str
     runAiContentModerationAction({
       entityType: 'COMMENT',
       entityId: comment.id,
-      content: comment.content,
     }).catch((err) => console.error('AI moderation trigger error on comment creation:', err));
   });
 
@@ -81,12 +80,25 @@ export async function updateComment(commentId: string, content: string, userId: 
     throw new Error(error.message);
   }
 
+  // Create content version for comment edition
+  const { data: version } = await supabase
+    .from('content_versions')
+    .insert({
+      entity_type: 'COMMENT',
+      entity_id: updatedComment.id,
+      version_number: Date.now(),
+      content: updatedComment.content,
+      edited_by: userId,
+    })
+    .select('id')
+    .maybeSingle();
+
   // Trigger server-side AI analysis asynchronously on comment update
   import('@/app/actions/moderation-ai').then(({ runAiContentModerationAction }) => {
     runAiContentModerationAction({
       entityType: 'COMMENT',
       entityId: updatedComment.id,
-      content: updatedComment.content,
+      versionId: version?.id || null,
     }).catch((err) => console.error('AI moderation trigger error on comment update:', err));
   });
 

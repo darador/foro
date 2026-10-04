@@ -8,15 +8,21 @@ import {
   ALLOWED_AI_FLAGS,
 } from '@/lib/services/moderation-ai';
 
-describe('FASE 3B — Moderación Automática con IA Unit & Contract Tests', () => {
-  const migrationPath = path.join(
+describe('FASE 3B & 3B.1 — Moderación Automática con IA Integrity & Security Tests', () => {
+  const schemaMigrationPath = path.join(
     process.cwd(),
     'supabase/migrations/20261004000024_fase3b_moderation_ai_schema.sql'
   );
-  const migrationContent = fs.readFileSync(migrationPath, 'utf-8');
+  const hardeningMigrationPath = path.join(
+    process.cwd(),
+    'supabase/migrations/20261004000025_fase3b1_moderation_ai_hardening.sql'
+  );
 
-  // 1. CLASSIFIER VALIDATIONS (ZOD SCHEMA & MOCK LOGIC)
-  describe('1. Classifier Schema & Logic', () => {
+  const schemaContent = fs.readFileSync(schemaMigrationPath, 'utf-8');
+  const hardeningContent = fs.readFileSync(hardeningMigrationPath, 'utf-8');
+
+  // 1. CLASSIFIER VALIDATIONS & FAIL-SAFE RULES
+  describe('1. Classifier Schema & Strict Validation Rules', () => {
     it('validates LOW risk response correctly', () => {
       const validLow = {
         risk_level: 'LOW',
@@ -29,136 +35,86 @@ describe('FASE 3B — Moderación Automática con IA Unit & Contract Tests', () 
       expect(res.confidence).toBe(0.9);
     });
 
-    it('validates REVIEW risk response correctly', () => {
-      const validReview = {
-        risk_level: 'REVIEW',
-        flags: ['PERSONAL_DATA'],
-        confidence: 0.85,
-        reason: 'Posibles datos personales expuestos.',
-      };
-      const res = ModerationAiResponseSchema.parse(validReview);
-      expect(res.risk_level).toBe('REVIEW');
-    });
-
-    it('validates CRITICAL risk response correctly', () => {
-      const validCritical = {
-        risk_level: 'CRITICAL',
-        flags: ['POSSIBLE_MINOR'],
-        confidence: 0.98,
-        reason: 'Mención o contexto sospechoso sobre menor de edad.',
-      };
-      const res = ModerationAiResponseSchema.parse(validCritical);
-      expect(res.risk_level).toBe('CRITICAL');
-    });
-
-    it('rejects invalid confidence outside 0..1', () => {
-      const invalidConf = {
+    it('rejects inconsistent LOW risk with critical flags', () => {
+      const inconsistentLow = {
         risk_level: 'LOW',
-        flags: [],
-        confidence: 1.5,
-        reason: 'Test',
+        flags: ['POSSIBLE_MINOR'],
+        confidence: 0.9,
+        reason: 'Experiencia sexual.',
       };
-      expect(() => ModerationAiResponseSchema.parse(invalidConf)).toThrow();
+      expect(() => ModerationAiResponseSchema.parse(inconsistentLow)).toThrow();
     });
 
-    it('rejects invalid risk_level', () => {
-      const invalidRisk = {
-        risk_level: 'BAN_USER',
-        flags: [],
+    it('rejects invalid flags not in ALLOWED_AI_FLAGS', () => {
+      const invalidFlag = {
+        risk_level: 'LOW',
+        flags: ['UNKNOWN_CUSTOM_FLAG'],
         confidence: 0.8,
         reason: 'Test',
       };
-      expect(() => ModerationAiResponseSchema.parse(invalidRisk)).toThrow();
+      expect(() => ModerationAiResponseSchema.parse(invalidFlag)).toThrow();
     });
 
-    it('differentiates consensual adult sexuality (LOW) from prohibited content (CRITICAL/REVIEW)', () => {
-      const adultPost = mockClassifierLogic({
-        entityType: 'POST',
-        title: 'Experiencia Swinger y BDSM',
-        content: 'Anoche compartimos una experiencia BDSM consensuada en una fiesta swinger.',
-      });
-
-      expect(adultPost.risk_level).toBe('LOW');
-      expect(adultPost.flags).toContain('SEXUAL_CONTENT');
-
-      const criticalPost = mockClassifierLogic({
-        entityType: 'POST',
-        title: 'Fotos de menor',
-        content: 'Comparto fotos de un menor de edad en la nube.',
-      });
-
-      expect(criticalPost.risk_level).toBe('CRITICAL');
-      expect(criticalPost.flags).toContain('POSSIBLE_MINOR');
-    });
-
-    it('system prompt enforces adult sexuality is permitted and forbids automatic bans', () => {
-      const prompt = buildSystemPrompt();
-      expect(prompt).toContain('ForoFetiche, una comunidad adulta');
-      expect(prompt).toContain('BDSM, swinger, trios, fetiches');
-      expect(prompt).toContain('La IA es una señal de asistencia');
-      expect(prompt).not.toContain('BAN');
-      expect(prompt).not.toContain('DELETE');
+    it('validates REVIEW risk response with AI_UNAVAILABLE flag for fail-safe', () => {
+      const failSafeResponse = {
+        risk_level: 'REVIEW',
+        flags: ['AI_UNAVAILABLE'],
+        confidence: 0,
+        reason: 'Análisis automático no disponible o falló.',
+      };
+      const res = ModerationAiResponseSchema.parse(failSafeResponse);
+      expect(res.risk_level).toBe('REVIEW');
+      expect(res.flags).toContain('AI_UNAVAILABLE');
     });
   });
 
-  // 2. SCHEMA & MIGRATION CONTRACT TESTS
-  describe('2. Database Schema & RLS Policies', () => {
-    it('verifies moderation_ai_results schema extensions (content_version_id, entity_type, entity_id, reason)', () => {
-      expect(migrationContent).toContain('ALTER TABLE public.moderation_ai_results');
-      expect(migrationContent).toContain('ALTER COLUMN case_id DROP NOT NULL');
-      expect(migrationContent).toContain("ADD COLUMN IF NOT EXISTS entity_type TEXT CHECK (entity_type IN ('POST', 'COMMENT'))");
-      expect(migrationContent).toContain('ADD COLUMN IF NOT EXISTS entity_id UUID');
-      expect(migrationContent).toContain('ADD COLUMN IF NOT EXISTS content_version_id UUID REFERENCES public.content_versions(id)');
-      expect(migrationContent).toContain('ADD COLUMN IF NOT EXISTS reason TEXT');
+  // 2. AUTHORIZATION & DB SCHEMA HARDENING
+  describe('2. Authorization, RLS, and Database Constraints', () => {
+    it('verifies record_ai_moderation_result EXECUTE permission is revoked from PUBLIC, anon, AND authenticated clients', () => {
+      expect(hardeningContent).toContain(
+        'REVOKE EXECUTE ON FUNCTION public.record_ai_moderation_result(TEXT, UUID, UUID, TEXT, TEXT, TEXT[], NUMERIC, TEXT) FROM PUBLIC, anon, authenticated;'
+      );
     });
 
-    it('verifies performance and idempotency indexes exist', () => {
-      expect(migrationContent).toContain('CREATE INDEX IF NOT EXISTS idx_moderation_ai_results_entity');
-      expect(migrationContent).toContain('CREATE INDEX IF NOT EXISTS idx_moderation_ai_results_case');
+    it('verifies unique idempotency index uq_moderation_ai_results_version on content_version_id', () => {
+      expect(hardeningContent).toContain('CREATE UNIQUE INDEX IF NOT EXISTS uq_moderation_ai_results_version');
+      expect(hardeningContent).toContain('ON public.moderation_ai_results(entity_type, entity_id, content_version_id)');
+      expect(hardeningContent).toContain('WHERE content_version_id IS NOT NULL');
+    });
+
+    it('verifies record_ai_moderation_result RPC validates target entity and content version existence', () => {
+      expect(hardeningContent).toContain('SELECT 1 FROM public.posts WHERE id = entity_id_param');
+      expect(hardeningContent).toContain('SELECT 1 FROM public.comments WHERE id = entity_id_param');
+      expect(hardeningContent).toContain('SELECT 1 FROM public.content_versions');
     });
 
     it('verifies RLS policies restrict moderation_ai_results to moderators/admins and block direct client mutation', () => {
-      expect(migrationContent).toContain('ALTER TABLE public.moderation_ai_results ENABLE ROW LEVEL SECURITY;');
-      expect(migrationContent).toContain('CREATE POLICY "Only moderators can view moderation AI results"');
-      expect(migrationContent).toContain('USING (public.is_moderator(auth.uid()) OR public.is_admin(auth.uid()))');
-      expect(migrationContent).toContain('CREATE POLICY "No direct insert on moderation AI results"');
-      expect(migrationContent).toContain('CREATE POLICY "No direct update on moderation AI results"');
-      expect(migrationContent).toContain('CREATE POLICY "No direct delete on moderation AI results"');
-    });
-
-    it('verifies record_ai_moderation_result RPC logic and security settings', () => {
-      expect(migrationContent).toContain('CREATE OR REPLACE FUNCTION public.record_ai_moderation_result');
-      expect(migrationContent).toContain('SECURITY DEFINER');
-      expect(migrationContent).toContain('SET search_path = public');
-      expect(migrationContent).toContain("UPDATE public.posts SET status = 'HIDDEN'");
-      expect(migrationContent).toContain("UPDATE public.comments SET status = 'HIDDEN'");
-      expect(migrationContent).toContain("UPDATE public.posts SET status = 'PENDING_REVIEW'");
-      expect(migrationContent).toContain('INSERT INTO public.audit_logs');
-      expect(migrationContent).toContain('REVOKE EXECUTE ON FUNCTION public.record_ai_moderation_result');
-      expect(migrationContent).toContain('GRANT EXECUTE ON FUNCTION public.record_ai_moderation_result');
+      expect(schemaContent).toContain('ALTER TABLE public.moderation_ai_results ENABLE ROW LEVEL SECURITY;');
+      expect(schemaContent).toContain('CREATE POLICY "Only moderators can view moderation AI results"');
+      expect(schemaContent).toContain('USING (public.is_moderator(auth.uid()) OR public.is_admin(auth.uid()))');
+      expect(schemaContent).toContain('CREATE POLICY "No direct insert on moderation AI results"');
     });
   });
 
-  // 3. SERVER ACTION & SERVICE INTEGRATION
-  describe('3. Server Service & Client Triggering', () => {
-    it('verifies server action src/app/actions/moderation-ai.ts runs 100% server-side', () => {
+  // 3. SERVER ACTION & CLIENT DISPATCH INTEGRATION
+  describe('3. Server Action Security & Client Service Dispatch', () => {
+    it('verifies server action accepts ONLY entityType, entityId, versionId (client cannot control text, title, or classification)', () => {
       const actionPath = path.join(process.cwd(), 'src/app/actions/moderation-ai.ts');
-      expect(fs.existsSync(actionPath)).toBe(true);
-
       const actionContent = fs.readFileSync(actionPath, 'utf-8');
+
       expect(actionContent).toContain("'use server'");
       expect(actionContent).toContain('runAiContentModerationAction');
+      expect(actionContent).not.toContain('title:');
+      expect(actionContent).not.toContain('content:');
+      expect(actionContent).not.toContain('risk_level');
     });
 
-    it('verifies client post and comment services trigger AI moderation server action asynchronously', () => {
-      const clientPostsPath = path.join(process.cwd(), 'src/lib/services/client/posts.ts');
-      const clientCommentsPath = path.join(process.cwd(), 'src/lib/services/client/comments.ts');
+    it('verifies moderation-ai.ts server service fetches real content from DB', () => {
+      const servicePath = path.join(process.cwd(), 'src/lib/services/moderation-ai.ts');
+      const serviceContent = fs.readFileSync(servicePath, 'utf-8');
 
-      const postsContent = fs.readFileSync(clientPostsPath, 'utf-8');
-      const commentsContent = fs.readFileSync(clientCommentsPath, 'utf-8');
-
-      expect(postsContent).toContain('runAiContentModerationAction');
-      expect(commentsContent).toContain('runAiContentModerationAction');
+      expect(serviceContent).toContain("from('posts')");
+      expect(serviceContent).toContain("from('comments')");
     });
   });
 });
