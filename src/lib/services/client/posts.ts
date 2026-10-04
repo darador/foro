@@ -108,14 +108,9 @@ export async function updatePost(postId: string, formValues: Partial<PostFormVal
 export async function softDeletePost(postId: string, userId: string) {
   const supabase = createClient();
 
-  const { error } = await supabase
-    .from('posts')
-    .update({
-      status: 'DELETED',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', postId)
-    .eq('author_id', userId);
+  const { error } = await supabase.rpc('soft_delete_post', {
+    target_post_id: postId,
+  });
 
   if (error) {
     throw new Error(error.message);

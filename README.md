@@ -58,7 +58,8 @@ supabase/migrations/
 ├── 20261004000004_fix_rls_findings.sql (Fase 1.2)
 ├── 20261004000005_fase2a_community_helpers.sql (Fase 2A)
 ├── 20261004000006_fase2a_security_corrections.sql (Correcciones Fase 2A)
-└── 20261004000007_fix_post_counter_protection.sql (Protección Definitiva Contadores)
+├── 20261004000007_fix_post_counter_protection.sql (Protección Definitiva Contadores)
+└── 20261004000008_fix_status_moderation_bypass.sql (Protección Status & RPC Soft Delete)
 ```
 
 ---
@@ -68,7 +69,8 @@ supabase/migrations/
 ### PROHIBIDAS (Verificadas mediante Column-Level Privileges, RLS, Triggers DB y Tests):
 - ❌ Leer o modificar la tabla `admin_roles` directamente como usuario normal.
 - ❌ Modificar `email_verified`, contadores o `badges` vía UPDATE directo en `profiles`.
-- ❌ Modificar `views_count`, `reactions_count` o `comments_count` vía INSERT o UPDATE en `posts` (revocado a nivel de columna en PostgreSQL).
+- ❌ Modificar `views_count`, `reactions_count`, `comments_count` o `status` vía UPDATE directo en `posts` (revocado a nivel de columna en PostgreSQL para el rol `authenticated`).
+- ❌ Desocultar publicaciones de moderación (`HIDDEN`/`PENDING_REVIEW` → `PUBLISHED`) vía API cliente.
 - ❌ Leer `audit_logs`, `moderation_cases`, `moderation_actions` o `moderation_ai_results`.
 - ❌ Leer `saved_posts` de otros usuarios.
 - ❌ Leer conversaciones o mensajes ajenos.
@@ -80,12 +82,12 @@ supabase/migrations/
 - `modificar campos legítimos del propio perfil (alias, description, profile_type, province, city, tags, avatar_url)`
 - `leer contenido publicado y categorías`
 - `crear contenido, comentarios y reacciones si email_verified=true`
-- `gestionar guardados propios, follows propios y bloqueos propios`
+- `gestionar guardados propios, follows propios, bloqueos propios y borrado suave propio vía RPC soft_delete_post()`
 
 ---
 
 ## 6. Resultados de Pruebas
 
-- **Pruebas Automatizadas (`npm test`):** 44 de 44 pruebas pasadas exitosamente (100% de efectividad).
+- **Pruebas Automatizadas (`npm test`):** 46 de 46 pruebas pasadas exitosamente (100% de efectividad).
 - **Compilado de Producción (`npm run build`):** Exitoso sin errores de TypeScript ni sintaxis.
 

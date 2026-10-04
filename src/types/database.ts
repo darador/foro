@@ -475,6 +475,19 @@ export interface Database {
         }
         Returns: boolean
       }
+      soft_delete_post: {
+        Args: {
+          target_post_id: string
+        }
+        Returns: void
+      }
+      moderate_post_status: {
+        Args: {
+          target_post_id: string
+          new_status: string
+        }
+        Returns: void
+      }
     }
     Enums: {
       [_ in never]: never

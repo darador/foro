@@ -10,7 +10,7 @@ import { sanitizeHtml } from '../src/lib/sanitize';
  * 1. PRUEBAS UNITARIAS DE SANITIZACIÓN: Ejecutan la función `sanitizeHtml()` con
  *    múltiples vectores de ataque XSS (DOMPurify allowlist).
  * 2. PRUEBAS CONTRACTUALES / ESTRUCTURALES SQL: Verifican la presencia de Column-Level Privileges,
- *    triggers, restricciones CHECK, search_path y sentencias REVOKE en las migraciones incremental.
+ *    triggers, restricciones CHECK, search_path, sentencias REVOKE y RPCs específicas en las migraciones incremental.
  * 
  * NOTA DE DEUDA TÉCNICA: SECURITY_VALIDATION_PENDING (No son pruebas de integración runtime en PostgreSQL
  * por falta de Docker / Supabase CLI en el entorno actual).
@@ -23,6 +23,7 @@ describe('FASE 2A — NÚCLEO DE COMUNIDAD: Verificación Contractual & Segurida
   const initialRls = getSql('20261004000001_rls_policies.sql');
   const correctionsSql = getSql('20261004000006_fase2a_security_corrections.sql');
   const counterFixSql = getSql('20261004000007_fix_post_counter_protection.sql');
+  const statusFixSql = getSql('20261004000008_fix_status_moderation_bypass.sql');
 
   describe('1. SANITIZACIÓN HTML & PROTECCIÓN XSS (DOMPurify Allowlist)', () => {
     test('Permite etiquetas seguras y formato básico', () => {
@@ -78,7 +79,7 @@ describe('FASE 2A — NÚCLEO DE COMUNIDAD: Verificación Contractual & Segurida
     });
   });
 
-  describe('2. PROTECCIÓN DE CONTADORES DE PUBLICACIONES (COLUMN-LEVEL PRIVILEGES & TRIGGERS)', () => {
+  describe('2. PROTECCIÓN DE CONTADORES Y COLUMNAS DE PUBLICACIONES (POSTS)', () => {
     test('Revoca permisos de INSERT y UPDATE sobre la tabla posts a authenticated y anon', () => {
       expect(counterFixSql).toContain('REVOKE INSERT, UPDATE ON public.posts FROM authenticated, anon, PUBLIC;');
     });
@@ -92,11 +93,12 @@ describe('FASE 2A — NÚCLEO DE COMUNIDAD: Verificación Contractual & Segurida
       expect(grantInsertBlock).not.toContain('comments_count');
     });
 
-    test('Otorga permiso de UPDATE únicamente en columnas editables por el usuario', () => {
-      const grantUpdateBlock = counterFixSql.split('GRANT UPDATE (')[1].split(') ON public.posts')[0];
+    test('Revoca permiso de UPDATE en posts.status a authenticated (000008)', () => {
+      expect(statusFixSql).toContain('REVOKE UPDATE ON public.posts FROM authenticated, anon, PUBLIC;');
+      const grantUpdateBlock = statusFixSql.split('GRANT UPDATE (')[1].split(') ON public.posts')[0];
       expect(grantUpdateBlock).toContain('title');
       expect(grantUpdateBlock).toContain('content');
-      expect(grantUpdateBlock).toContain('status');
+      expect(grantUpdateBlock).not.toContain('status');
       expect(grantUpdateBlock).not.toContain('views_count');
       expect(grantUpdateBlock).not.toContain('reactions_count');
       expect(grantUpdateBlock).not.toContain('comments_count');
@@ -109,7 +111,21 @@ describe('FASE 2A — NÚCLEO DE COMUNIDAD: Verificación Contractual & Segurida
     });
   });
 
-  describe('3. CORRECCIÓN DE CONTADORES DE COMENTARIOS (STATUS PUBLISHED)', () => {
+  describe('3. BLINDAJE DE STATUS Y MODERACIÓN VÍA RPCs', () => {
+    test('RPC soft_delete_post encapsula el borrado suave del autor sin permitir otros estados', () => {
+      expect(statusFixSql).toContain('FUNCTION public.soft_delete_post(target_post_id UUID)');
+      expect(statusFixSql).toContain('SET search_path = public');
+      expect(statusFixSql).toContain('SET status = \'DELETED\'');
+      expect(statusFixSql).toContain('author_id = auth.uid()');
+    });
+
+    test('RPC moderate_post_status exige rol is_moderator(auth.uid())', () => {
+      expect(statusFixSql).toContain('FUNCTION public.moderate_post_status(target_post_id UUID, new_status TEXT)');
+      expect(statusFixSql).toContain('public.is_moderator(auth.uid())');
+    });
+  });
+
+  describe('4. CORRECCIÓN DE CONTADORES DE COMENTARIOS (STATUS PUBLISHED)', () => {
     test('Trigger sync_comment_counters escucha UPDATE y contempla transiciones de status', () => {
       expect(correctionsSql).toContain('AFTER INSERT OR UPDATE OR DELETE ON public.comments');
       expect(correctionsSql).toContain('OLD.status = \'PUBLISHED\' AND NEW.status <> \'PUBLISHED\'');
@@ -117,7 +133,7 @@ describe('FASE 2A — NÚCLEO DE COMUNIDAD: Verificación Contractual & Segurida
     });
   });
 
-  describe('4. HARDENING DE FUNCIONES SECURITY DEFINER & RPC', () => {
+  describe('5. HARDENING DE FUNCIONES SECURITY DEFINER & RPC', () => {
     test('Todas las funciones SECURITY DEFINER definen SET search_path = public', () => {
       expect(correctionsSql).toContain('FUNCTION public.increment_post_views(target_post_id UUID)');
       expect(correctionsSql).toContain('SET search_path = public');
@@ -129,7 +145,7 @@ describe('FASE 2A — NÚCLEO DE COMUNIDAD: Verificación Contractual & Segurida
     });
   });
 
-  describe('5. REGLAS BASE & PRIVACIDAD', () => {
+  describe('6. REGLAS BASE & PRIVACIDAD', () => {
     test('Profundidad máxima de comentarios limitada a 3 niveles a nivel DB', () => {
       const initialSchema = getSql('20261004000000_initial_schema.sql');
       expect(initialSchema).toContain('depth INTEGER NOT NULL DEFAULT 1 CHECK (depth <= 3)');
