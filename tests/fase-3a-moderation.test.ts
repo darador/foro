@@ -11,9 +11,14 @@ describe('FASE 3A & 3A.1 — Moderación Base Integrity & Security Contract Test
     process.cwd(),
     'supabase/migrations/20261004000022_fase3a1_moderation_integrity_hardening.sql'
   );
+  const auditPolicyMigrationPath = path.join(
+    process.cwd(),
+    'supabase/migrations/20261004000023_fase3a1_audit_logs_select_policy.sql'
+  );
 
   const foundationContent = fs.readFileSync(foundationMigrationPath, 'utf-8');
   const hardeningContent = fs.readFileSync(hardeningMigrationPath, 'utf-8');
+  const auditPolicyContent = fs.readFileSync(auditPolicyMigrationPath, 'utf-8');
 
   it('verifies user_moderation_actions table is created with valid sanction action check constraint', () => {
     expect(foundationContent).toContain('CREATE TABLE IF NOT EXISTS public.user_moderation_actions');
@@ -82,6 +87,13 @@ describe('FASE 3A & 3A.1 — Moderación Base Integrity & Security Contract Test
     expect(hardeningContent).toContain('No direct insert on audit logs');
     expect(hardeningContent).toContain('No direct update on audit logs');
     expect(hardeningContent).toContain('No direct delete on audit logs');
+  });
+
+  it('verifies audit_logs SELECT policy allows moderators and superadmins/admins while maintaining append-only block', () => {
+    expect(auditPolicyContent).toContain('DROP POLICY IF EXISTS "Only admins can view audit logs" ON public.audit_logs;');
+    expect(auditPolicyContent).toContain('CREATE POLICY "Only moderators or admins can view audit logs"');
+    expect(auditPolicyContent).toContain('ON public.audit_logs FOR SELECT');
+    expect(auditPolicyContent).toContain('USING (public.is_moderator(auth.uid()) OR public.is_admin(auth.uid()))');
   });
 
   it('verifies controlled message access RLS policy for moderators (only reported messages linked to a case)', () => {
