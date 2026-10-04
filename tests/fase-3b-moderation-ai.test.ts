@@ -375,4 +375,58 @@ describe('FASE 3B & 3B.1 — Moderación Automática con IA Integrity & Security
       expect(migration27Content).toContain('is_mod := public.is_moderator(auth.uid());');
     });
   });
+
+  // 7. FASE 3B.6 — PUBLICATION GATE ANONYMOUS CONTEXT HARDENING VERIFICATION TESTS
+  describe('7. Fase 3B.6 Publication Gate Anonymous Context Hardening Tests', () => {
+    const migration29Path = path.join(
+      process.cwd(),
+      'supabase/migrations/20261004000029_fase3b6_harden_publication_gate_anon.sql'
+    );
+    const migration29Content = fs.readFileSync(migration29Path, 'utf-8');
+
+    it('1. Removes auth.uid() IS NULL from is_privileged check in enforce_publication_gate', () => {
+      expect(migration29Content).toContain('is_privileged := (');
+      expect(migration29Content).toContain("session_user IN ('postgres', 'supabase_admin') OR");
+      expect(migration29Content).toContain("current_setting('request.jwt.claim.role', true) = 'service_role'");
+      expect(migration29Content).not.toContain('OR auth.uid() IS NULL');
+    });
+
+    it('2. Explicitly treats anonymous context (auth.uid() IS NULL) as non-privileged', () => {
+      expect(migration29Content).toContain('IF auth.uid() IS NOT NULL THEN');
+      expect(migration29Content).toContain('is_mod := public.is_moderator(auth.uid());');
+      expect(migration29Content).toContain('is_mod := FALSE;');
+    });
+
+    it('3. Normal user + AI enabled: INSERT PUBLISHED is denied, INSERT PENDING_REVIEW is permitted', () => {
+      expect(migration29Content).toContain('IF NOT is_mod AND ai_enabled THEN');
+      expect(migration29Content).toContain("IF NEW.status = 'PUBLISHED' THEN");
+      expect(migration29Content).toContain('Usuarios no moderadores no pueden publicar directamente con estado PUBLISHED');
+      expect(migration29Content).toContain('RETURN NEW;');
+    });
+
+    it('4. Normal user + AI enabled: UPDATE PENDING_REVIEW -> PUBLISHED is denied', () => {
+      expect(migration29Content).toContain("ELSIF TG_OP = 'UPDATE' THEN");
+      expect(migration29Content).toContain("IF NEW.status = 'PUBLISHED' AND (OLD.status IS DISTINCT FROM 'PUBLISHED' OR NEW.status IS DISTINCT FROM OLD.status) THEN");
+      expect(migration29Content).toContain('Usuarios no moderadores no pueden promover el estado de contenido a PUBLISHED');
+    });
+
+    it('5. Normal user + AI disabled: INSERT PUBLISHED is permitted', () => {
+      expect(migration29Content).toContain("ai_enabled := (config_val = 'true');");
+      expect(migration29Content).toContain('IF NOT is_mod AND ai_enabled THEN');
+    });
+
+    it('6. Human moderators retain moderation capabilities', () => {
+      expect(migration29Content).toContain('is_mod := public.is_moderator(auth.uid());');
+    });
+
+    it('7. Service role retains internal promotion capabilities', () => {
+      expect(migration29Content).toContain("session_user IN ('postgres', 'supabase_admin')");
+      expect(migration29Content).toContain("current_setting('request.jwt.claim.role', true) = 'service_role'");
+    });
+
+    it('8. Anonymous callers (auth.uid() IS NULL) cannot bypass publication gate', () => {
+      expect(migration29Content).toContain('NEVER grant implicit privileges to anonymous callers (auth.uid() IS NULL)');
+      expect(migration29Content).toContain('IF NOT is_mod AND ai_enabled THEN');
+    });
+  });
 });
