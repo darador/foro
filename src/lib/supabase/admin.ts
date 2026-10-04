@@ -6,6 +6,10 @@ import type { Database } from '@/types/database';
  * NEVER expose or call this client on the browser side.
  */
 export function createAdminClient() {
+  if (typeof window !== 'undefined') {
+    throw new Error('CRITICAL SECURITY ERROR: Service Role client cannot be executed in the browser.');
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 

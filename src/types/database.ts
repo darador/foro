@@ -265,6 +265,35 @@ export interface Database {
           created_at?: string
         }
       }
+      moderation_ai_results: {
+        Row: {
+          id: string
+          case_id: string
+          model: string
+          risk_level: ModerationPriority
+          flags: string[]
+          confidence: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          case_id: string
+          model: string
+          risk_level: ModerationPriority
+          flags?: string[]
+          confidence?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          case_id?: string
+          model?: string
+          risk_level?: ModerationPriority
+          flags?: string[]
+          confidence?: number | null
+          created_at?: string
+        }
+      }
       audit_logs: {
         Row: {
           id: string

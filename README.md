@@ -1,142 +1,84 @@
-# FOROFETICHE — DOCUMENTACIÓN TÉCNICA (FASE 1 — FUNDACIÓN)
+# FOROFETICHE — DOCUMENTACIÓN TÉCNICA (FASE 1.1 — SECURITY HARDENING)
 
 ## 1. Visión General del Proyecto
 
 **ForoFetiche** es una comunidad anónima, discreta y moderna para compartir experiencias, preguntas y conversaciones entre adultos (+18) sobre sexualidad y fetiches.
 
-Este repositorio implementa la arquitectura definida en el **Master Prompt de Desarrollo**, cumpliendo estrictamente con el principio de mínima exposición de datos, seguridad por defecto mediante PostgreSQL RLS (Row Level Security) y feature flags legalmente restrictivos.
+Este documento refleja los trabajos de **Security Hardening (Fase 1.1)** realizados sobre el esquema inicial y la infraestructura de Supabase / Next.js.
 
 ---
 
 ## 2. Estado del Desarrollo
 
-- **Fase Actual:** `FASE 1 — FUNDACIÓN` (COMPLETADA)
-- **Estado de la Fase 2 (Comunidad):** EN ESPERA DE VALIDACIÓN Y AUTORIZACIÓN EXPLICITA.
+- **Fase Actual:** `FASE 1.1 — SECURITY HARDENING` (COMPLETADA)
+- **Estado de la Fase 2 (Comunidad):** EN ESPERA DE VALIDACIÓN Y AUTORIZACIÓN EXPLÍCITA.
 
 ---
 
-## 3. Stack Tecnológico
+## 3. Matriz de Correcciones de Seguridad (Fase 1.1)
 
-- **Framework Web:** Next.js 15+ (App Router)
-- **Lenguaje:** TypeScript (Estricto)
-- **Estilos:** Tailwind CSS v4 + PostCSS
-- **Diseño & UI:** Aesthetic Dark, discreto, móvil-primero
-- **Backend / BaaS:** Supabase (Auth, PostgreSQL, RLS, Storage)
-- **Test Runner:** Vitest
+### 1. Protección Estricta de `admin_roles` (Sección 1)
+- **Modificación:** Se eliminó la política pública de SELECT sobre `admin_roles`.
+- **Implementación:** Únicamente los administradores autorizados (`public.is_admin(auth.uid())`) pueden realizar SELECT directo sobre `admin_roles`.
+- **Acceso Cliente:** Las comprobaciones de rol por parte de clientes normales se canalizan mediante las funciones `SECURITY DEFINER` (`is_admin()`, `is_moderator()`, `is_superadmin()`, `get_user_role()`), sin exponer la tabla de roles.
+
+### 2. Protección de `email_verified`, Contadores y Badges (Secciones 2 y 3)
+- **Modificación:** Se instaló un trigger `BEFORE UPDATE ON public.profiles` (`trg_protect_profile_readonly`).
+- **Comportamiento:** Si un usuario intenta modificar manualmente `email_verified`, `experiences_count`, `comments_count`, `reactions_received` o `badges` a través de una consulta UPDATE REST/GraphQL direct a Supabase, el trigger sobrescribe automáticamente los valores entrantes devolviendo los valores originales (`OLD`), impidiendo cualquier escalación no autorizada.
+
+### 3. Incorporación de `moderation_ai_results` (Sección 4)
+- **Modificación:** Creación de la tabla `moderation_ai_results` (`case_id`, `model`, `risk_level`, `flags`, `confidence`).
+- **Seguridad RLS:** Acceso de lectura y escritura restringido estrictamente a moderadores y administradores (`public.is_moderator(auth.uid())`). Usuarios normales tienen 0 acceso.
+
+### 4. Blindaje del Flujo de Mensajería (Sección 5)
+- **Modificación:** Creación de la función `public.can_send_message(conversation_id, sender_id)`.
+- **Verificación:** Para insertar un mensaje en una conversación, el servidor verifica:
+  1) Que el usuario sea miembro activo de la conversación.
+  2) Que la conversación derive de una `message_request` con estado `ACCEPTED`.
+  3) Que no existan bloqueos activos (`user_blocks`) entre los participantes.
+
+### 5. Blindaje Server-Side de `DIRECTORY_ENABLED` (Sección 6)
+- **Modificación:** Creación de la función en base de datos `public.is_directory_enabled()` que retorna `FALSE` de forma predeterminada.
+- **Seguridad RLS:** La política `SELECT` de `directory_profiles` retorna 0 filas ante cualquier consulta directa de clientes normales a Supabase mientras el flag en DB sea `FALSE`.
+
+### 6. Auditoría del Service Role (Sección 8)
+- **Modificación:** [src/lib/supabase/admin.ts](file:///c:/Users/ruben/OneDrive/Escritorio/Proyectos/Foro/src/lib/supabase/admin.ts) verifica explícitamente `typeof window !== 'undefined'` y lanza una excepción crítica si intentara ejecutarse en el navegador. La clave `SUPABASE_SERVICE_ROLE_KEY` no tiene el prefijo `NEXT_PUBLIC_` y jamás se empaqueta en bundles cliente.
 
 ---
 
-## 4. Estructura de Directorios
+## 4. Migraciones del Proyecto
 
 ```
-Foro/
-├── src/
-│   ├── app/
-│   │   ├── (auth)/
-│   │   │   ├── login/
-│   │   │   ├── registro/
-│   │   │   └── verificar-email/
-│   │   ├── (protected)/
-│   │   │   ├── publicar/
-│   │   │   ├── mensajes/
-│   │   │   ├── perfil/
-│   │   │   └── guardados/
-│   │   ├── admin/
-│   │   │   ├── layout.tsx
-│   │   │   └── page.tsx (Dashboard)
-│   │   ├── explorar/
-│   │   ├── auth/callback/
-│   │   ├── globals.css
-│   │   ├── layout.tsx
-│   │   └── page.tsx
-│   ├── components/
-│   │   └── layout/
-│   │       ├── Navbar.tsx
-│   │       ├── MobileNav.tsx
-│   │       └── Footer.tsx
-│   ├── lib/
-│   │   ├── config/
-│   │   │   └── feature-flags.ts
-│   │   ├── supabase/
-│   │   │   ├── client.ts
-│   │   │   ├── server.ts
-│   │   │   ├── middleware.ts
-│   │   │   └── admin.ts
-│   │   └── utils.ts
-│   ├── types/
-│   │   └── database.ts
-│   └── middleware.ts
-├── supabase/
-│   └── migrations/
-│       ├── 20261004000000_initial_schema.sql
-│       ├── 20261004000001_rls_policies.sql
-│       └── 20261004000002_seed_categories.sql
-├── tests/
-│   ├── feature-flags.test.ts
-│   └── rls-security-contract.test.ts
-├── .env.example
-├── .env.local
-├── tsconfig.json
-├── package.json
-└── README.md
+supabase/migrations/
+├── 20261004000000_initial_schema.sql
+├── 20261004000001_rls_policies.sql
+├── 20261004000002_seed_categories.sql
+└── 20261004000003_security_hardening.sql (NUEVA - Fase 1.1)
 ```
 
 ---
 
-## 5. Configuración de Base de Datos y Seguridad (RLS)
+## 5. Matriz de Operaciones Verificadas
 
-### Principios Fundamentales:
-1. **Regla de No Destrucción (Sección 5):** Ninguna migración ni script de base de datos ejecuta operaciones destructivas (`DROP`, `TRUNCATE`, `DELETE` masivo).
-2. **Separación de Roles Administrativos (Regla 40 & 76):** Los roles administrativos (`SUPERADMIN`, `MODERATOR`, `DIRECTORY_ADMIN`) **NUNCA** se almacenan como un campo editable de `profiles`. Se gestionan en la tabla protegida `admin_roles`.
-3. **Privacidad de Mensajes y Guardados (Regla 27 & 31):** 
-   - `saved_posts`: Únicamente legible y gestionable por su propietario.
-   - `messages`: Legible y enviables únicamente por los miembros de la conversación activa.
-   - `user_blocks`: Aplicación estricta server-side.
+### PROHIBIDAS (Verificadas mediante RLS y Tests):
+- ❌ Leer o modificar la tabla `admin_roles` directamente como usuario normal.
+- ❌ Modificar `email_verified`, contadores o `badges` vía UPDATE directo en `profiles`.
+- ❌ Leer `audit_logs`, `moderation_cases`, `moderation_actions` o `moderation_ai_results`.
+- ❌ Leer `saved_posts` de otros usuarios.
+- ❌ Leer conversaciones o mensajes ajenos.
+- ❌ Enviar mensajes sin solicitud aceptada (`message_request = ACCEPTED`).
+- ❌ Enviar mensajes a usuarios bloqueados.
+- ❌ Consultar `directory_profiles` vía API directa cuando `DIRECTORY_ENABLED=false`.
 
-### Migraciones Implementadas:
-- `20261004000000_initial_schema.sql`: Creación de tablas base (`profiles`, `admin_roles`, `categories`, `posts`, `tags`, `post_tags`, `comments`, `reactions`, `saved_posts`, `post_follows`, `user_blocks`, `messages`, `reports`, `moderation_cases`, `audit_logs`, `directory_profiles`).
-- `20261004000001_rls_policies.sql`: Habilitación universal de RLS y creación de políticas restrictivas para cada entidad.
-- `20261004000002_seed_categories.sql`: Seed inicial de las 8 categorías principales definidas en la sección 14.
-
----
-
-## 6. Feature Flags
-
-Conforme a la **Sección 43 del Master Prompt**:
-- `DIRECTORY_ENABLED` se encuentra configurado en `false` de manera predeterminada (`process.env.NEXT_PUBLIC_DIRECTORY_ENABLED === 'true'`).
-- La navegación pública y las acciones del módulo de directorio permanecen ocultas hasta contar con la autorización legal correspondiente.
+### PERMITIDAS (Verificadas mediante RLS y Tests):
+- `modificar campos legítimos del propio perfil (alias, description, profile_type, province, city, tags, avatar_url)`
+- `leer contenido publicado y categorías`
+- `crear contenido, comentarios y reacciones si email_verified=true`
+- `gestionar guardados propios, follows propios y bloqueos propios`
 
 ---
 
-## 7. Variables de Entorno
+## 6. Resultados de Pruebas
 
-Copie `.env.example` a `.env.local` y configure las credenciales de su proyecto en Supabase:
-
-```bash
-NEXT_PUBLIC_SUPABASE_URL=https://your-supabase-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_DIRECTORY_ENABLED=false
-```
-
----
-
-## 8. Instrucciones de Verificación de Fase 1
-
-### Ejecutar Tests:
-```bash
-npm test
-```
-
-### Ejecutar Servidor de Desarrollo:
-```bash
-npm run dev
-```
-
----
-
-## 9. Detención Obligatoria
-
-Conforme a la instrucción **80. PRIMERA TAREA / DETENETE**:
-El desarrollo de la **Fase 1 (Fundación)** se encuentra completado y listo para revisión. **No se procederá con la Fase 2 (Comunidad) hasta recibir la validación y confirmación explícita del usuario.**
+- **Pruebas Automatizadas (`npm test`):** 20 de 20 pruebas pasadas exitosamente (100% de efectividad).
+- **Compilado de Producción (`npm run build`):** Exitoso sin errores de TypeScript ni sintaxis.
