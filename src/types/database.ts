@@ -73,6 +73,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       admin_roles: {
         Row: {
@@ -93,6 +94,7 @@ export interface Database {
           assigned_at?: string
           assigned_by?: string | null
         }
+        Relationships: []
       }
       categories: {
         Row: {
@@ -116,6 +118,7 @@ export interface Database {
           description?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       posts: {
         Row: {
@@ -169,6 +172,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       comments: {
         Row: {
@@ -204,6 +208,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       reactions: {
         Row: {
@@ -230,6 +235,7 @@ export interface Database {
           type?: 'ME_INTERESA'
           created_at?: string
         }
+        Relationships: []
       }
       saved_posts: {
         Row: {
@@ -247,6 +253,7 @@ export interface Database {
           post_id?: string
           created_at?: string
         }
+        Relationships: []
       }
       user_blocks: {
         Row: {
@@ -264,6 +271,7 @@ export interface Database {
           blocked_id?: string
           created_at?: string
         }
+        Relationships: []
       }
       moderation_ai_results: {
         Row: {
@@ -293,6 +301,7 @@ export interface Database {
           confidence?: number | null
           created_at?: string
         }
+        Relationships: []
       }
       audit_logs: {
         Row: {
@@ -328,7 +337,150 @@ export interface Database {
           reason?: string | null
           created_at?: string
         }
+        Relationships: []
       }
+      tags: {
+        Row: {
+          id: string
+          name: string
+          slug: string
+          status: 'ACTIVE' | 'INACTIVE'
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug: string
+          status?: 'ACTIVE' | 'INACTIVE'
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string
+          status?: 'ACTIVE' | 'INACTIVE'
+          created_at?: string
+        }
+        Relationships: []
+      }
+      post_tags: {
+        Row: {
+          post_id: string
+          tag_id: string
+        }
+        Insert: {
+          post_id: string
+          tag_id: string
+        }
+        Update: {
+          post_id?: string
+          tag_id?: string
+        }
+        Relationships: []
+      }
+      post_follows: {
+        Row: {
+          user_id: string
+          post_id: string
+          created_at: string
+        }
+        Insert: {
+          user_id: string
+          post_id: string
+          created_at?: string
+        }
+        Update: {
+          user_id?: string
+          post_id?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      reports: {
+        Row: {
+          id: string
+          reporter_id: string
+          target_type: 'POST' | 'COMMENT' | 'PROFILE' | 'MESSAGE'
+          target_id: string
+          reason: ReportReason
+          details: string | null
+          status: ReportStatus
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          reporter_id: string
+          target_type: 'POST' | 'COMMENT' | 'PROFILE' | 'MESSAGE'
+          target_id: string
+          reason: ReportReason
+          details?: string | null
+          status?: ReportStatus
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          reporter_id?: string
+          target_type?: 'POST' | 'COMMENT' | 'PROFILE' | 'MESSAGE'
+          target_id?: string
+          reason?: ReportReason
+          details?: string | null
+          status?: ReportStatus
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      increment_post_views: {
+        Args: {
+          target_post_id: string
+        }
+        Returns: void
+      }
+      get_user_role: {
+        Args: {
+          target_user_id: string
+        }
+        Returns: string
+      }
+      is_admin: {
+        Args: {
+          target_user_id: string
+        }
+        Returns: boolean
+      }
+      is_moderator: {
+        Args: {
+          target_user_id: string
+        }
+        Returns: boolean
+      }
+      is_superadmin: {
+        Args: {
+          target_user_id: string
+        }
+        Returns: boolean
+      }
+      can_send_message: {
+        Args: {
+          sender_uuid: string
+          recipient_uuid: string
+          req_id: string
+        }
+        Returns: boolean
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
     }
   }
 }

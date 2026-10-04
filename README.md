@@ -1,17 +1,18 @@
-# FOROFETICHE — DOCUMENTACIÓN TÉCNICA (FASE 1.1 — SECURITY HARDENING)
+# FOROFETICHE — DOCUMENTACIÓN TÉCNICA (FASE 2A — NÚCLEO DE COMUNIDAD)
 
 ## 1. Visión General del Proyecto
 
 **ForoFetiche** es una comunidad anónima, discreta y moderna para compartir experiencias, preguntas y conversaciones entre adultos (+18) sobre sexualidad y fetiches.
 
-Este documento refleja los trabajos de **Security Hardening (Fase 1.1)** realizados sobre el esquema inicial y la infraestructura de Supabase / Next.js.
+Este documento refleja la arquitectura y estado del desarrollo tras completar la **Fase 2A (Núcleo de Comunidad)**.
 
 ---
 
 ## 2. Estado del Desarrollo
 
-- **Fase Actual:** `FASE 1.1 — SECURITY HARDENING` (COMPLETADA)
-- **Estado de la Fase 2 (Comunidad):** EN ESPERA DE VALIDACIÓN Y AUTORIZACIÓN EXPLÍCITA.
+- **Fase Actual:** `FASE 2A — NÚCLEO DE COMUNIDAD` (COMPLETADA)
+- **Estado de Fase 2B / Siguientes Fases:** EN ESPERA DE AUTORIZACIÓN EXPLÍCITA DEL USUARIO.
+- **Deuda Técnica Registrada:** `SECURITY_VALIDATION_PENDING` (Pruebas RLS runtime en Supabase local pendientes para cuando Docker/CLI esté disponible).
 
 ---
 
@@ -53,7 +54,9 @@ supabase/migrations/
 ├── 20261004000000_initial_schema.sql
 ├── 20261004000001_rls_policies.sql
 ├── 20261004000002_seed_categories.sql
-└── 20261004000003_security_hardening.sql (NUEVA - Fase 1.1)
+├── 20261004000003_security_hardening.sql (Fase 1.1)
+├── 20261004000004_fase1_2_rls_corrections.sql (Fase 1.2)
+└── 20261004000005_fase2a_community_helpers.sql (Fase 2A)
 ```
 
 ---
@@ -80,5 +83,6 @@ supabase/migrations/
 
 ## 6. Resultados de Pruebas
 
-- **Pruebas Automatizadas (`npm test`):** 20 de 20 pruebas pasadas exitosamente (100% de efectividad).
+- **Pruebas Automatizadas (`npm test`):** 40 de 40 pruebas pasadas exitosamente (100% de efectividad).
 - **Compilado de Producción (`npm run build`):** Exitoso sin errores de TypeScript ni sintaxis.
+
