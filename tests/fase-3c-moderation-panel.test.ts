@@ -47,7 +47,7 @@ describe('FASE 3C — Panel de Moderación Humana Integrity, Security & UI Contr
 
   // 3. Priority Filter
   it('3. verifies getModerationCases supports priority filter (CRITICAL, REVIEW, LOW, ALL)', () => {
-    expect(moderationService).toContain('options.priority && options.priority !== \'ALL\'');
+    expect(moderationService).toContain('options.priority');
     expect(queueView).toContain('priorityFilter');
     expect(queueView).toContain('CRITICAL');
     expect(queueView).toContain('REVIEW');

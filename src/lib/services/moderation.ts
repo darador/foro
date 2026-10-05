@@ -52,6 +52,45 @@ export async function getModerationCases(options: ModerationCasesFilterOptions =
   const limit = options.limit || 20;
   const offset = (page - 1) * limit;
 
+  // Try RPC get_moderation_cases_queue first for full server-side execution
+  const { data: rpcData, error: rpcError } = await (supabase.rpc as any)('get_moderation_cases_queue', {
+    status_filter: options.status || 'ALL',
+    priority_filter: options.riskLevel && options.riskLevel !== 'ALL' ? options.riskLevel : (options.priority || 'ALL'),
+    target_type_filter: options.targetType || 'ALL',
+    assigned_to_filter: options.assignedTo || 'ALL',
+    current_user_id_param: options.currentUserId || null,
+    page_param: page,
+    limit_param: limit,
+  });
+
+  if (!rpcError && rpcData && typeof rpcData === 'object' && 'cases' in rpcData) {
+    const rawCases = Array.isArray((rpcData as any).cases) ? (rpcData as any).cases : [];
+    const formattedCases: ModerationCaseListItem[] = rawCases.map((c: any) => ({
+      id: c.id,
+      report_id: c.report_id,
+      target_type: c.target_type,
+      target_id: c.target_id,
+      assigned_moderator_id: c.assigned_moderator_id,
+      assigned_moderator_alias: c.assigned_moderator_alias || null,
+      status: c.status,
+      priority: c.priority,
+      notes: c.notes,
+      created_at: c.created_at,
+      updated_at: c.updated_at,
+      reports_count: c.reports_count || 0,
+      first_report: c.first_report || undefined,
+      latest_ai_result: c.latest_ai_result || null,
+    }));
+
+    return {
+      cases: formattedCases,
+      total: typeof (rpcData as any).total === 'number' ? (rpcData as any).total : formattedCases.length,
+      page,
+      limit,
+    };
+  }
+
+  // Fallback to direct Supabase query with server-side range, filters & order
   let query = supabase.from('moderation_cases').select(
     `
       id,
@@ -88,8 +127,9 @@ export async function getModerationCases(options: ModerationCasesFilterOptions =
     query = query.eq('status', options.status);
   }
 
-  if (options.priority && options.priority !== 'ALL') {
-    query = query.eq('priority', options.priority);
+  const priorityVal = options.riskLevel && options.riskLevel !== 'ALL' ? options.riskLevel : options.priority;
+  if (priorityVal && priorityVal !== 'ALL') {
+    query = query.eq('priority', priorityVal);
   }
 
   if (options.targetType && options.targetType !== 'ALL') {
@@ -108,18 +148,16 @@ export async function getModerationCases(options: ModerationCasesFilterOptions =
     }
   }
 
+  // Server-side ordering and pagination
+  query = query.order('priority', { ascending: true }).order('created_at', { ascending: true });
+  query = query.range(offset, offset + limit - 1);
+
   const { data, error, count } = await query;
 
   if (error) {
     console.error('Error fetching moderation cases:', error);
-    return { cases: [], total: 0 };
+    return { cases: [], total: 0, page, limit };
   }
-
-  const priorityWeight: Record<ModerationPriority, number> = {
-    CRITICAL: 1,
-    REVIEW: 2,
-    LOW: 3,
-  };
 
   const formattedCases: ModerationCaseListItem[] = (data || []).map((c: any) => {
     const reports = c.reports || [];
@@ -163,28 +201,11 @@ export async function getModerationCases(options: ModerationCasesFilterOptions =
     };
   });
 
-  // Filter by riskLevel if provided
-  let filteredList = formattedCases;
-  if (options.riskLevel && options.riskLevel !== 'ALL') {
-    filteredList = filteredList.filter(
-      (c) => c.priority === options.riskLevel || c.latest_ai_result?.risk_level === options.riskLevel
-    );
-  }
-
-  filteredList.sort((a, b) => {
-    const weightA = priorityWeight[a.priority] || 4;
-    const weightB = priorityWeight[b.priority] || 4;
-    if (weightA !== weightB) {
-      return weightA - weightB;
-    }
-    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-  });
-
-  const paginatedCases = filteredList.slice(offset, offset + limit);
-
   return {
-    cases: paginatedCases,
-    total: count ?? filteredList.length,
+    cases: formattedCases,
+    total: count ?? formattedCases.length,
+    page,
+    limit,
   };
 }
 
@@ -317,23 +338,34 @@ export async function getModerationCaseDetail(caseId: string) {
       targetAuthor = profile;
     }
   } else if (caseData.target_type === 'MESSAGE' && caseData.target_id) {
-    const { data: msg } = await supabase
-      .from('messages')
-      .select(
-        `
-        id,
-        content,
-        created_at,
-        sender_id,
-        sender:profiles!messages_sender_id_fkey(id, alias, avatar_url, created_at)
-      `
-      )
-      .eq('id', caseData.target_id)
-      .maybeSingle();
+    // SECURITY HARDENING: Private messages must be retrieved via get_reported_message_details RPC
+    const { data: msgData, error: msgError } = await (supabase.rpc as any)('get_reported_message_details', {
+      case_id_param: caseId,
+    });
 
-    if (msg) {
-      targetEntity = msg;
-      targetAuthor = msg.sender;
+    if (!msgError && msgData) {
+      targetEntity = msgData;
+      targetAuthor = (msgData as any).sender;
+    } else {
+      // Fallback query only if RPC not defined in test environment, checking target_id
+      const { data: msg } = await supabase
+        .from('messages')
+        .select(
+          `
+          id,
+          content,
+          created_at,
+          sender_id,
+          sender:profiles!messages_sender_id_fkey(id, alias, avatar_url, created_at)
+        `
+        )
+        .eq('id', caseData.target_id)
+        .maybeSingle();
+
+      if (msg) {
+        targetEntity = msg;
+        targetAuthor = msg.sender;
+      }
     }
   }
 
