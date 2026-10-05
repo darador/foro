@@ -346,26 +346,6 @@ export async function getModerationCaseDetail(caseId: string) {
     if (!msgError && msgData) {
       targetEntity = msgData;
       targetAuthor = (msgData as any).sender;
-    } else {
-      // Fallback query only if RPC not defined in test environment, checking target_id
-      const { data: msg } = await supabase
-        .from('messages')
-        .select(
-          `
-          id,
-          content,
-          created_at,
-          sender_id,
-          sender:profiles!messages_sender_id_fkey(id, alias, avatar_url, created_at)
-        `
-        )
-        .eq('id', caseData.target_id)
-        .maybeSingle();
-
-      if (msg) {
-        targetEntity = msg;
-        targetAuthor = msg.sender;
-      }
     }
   }
 
