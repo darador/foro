@@ -10,7 +10,10 @@ import type {
 export interface ModerationCasesFilterOptions {
   status?: ReportStatus | 'ALL';
   priority?: ModerationPriority | 'ALL';
+  riskLevel?: 'CRITICAL' | 'REVIEW' | 'LOW' | 'ALL';
   targetType?: 'POST' | 'COMMENT' | 'PROFILE' | 'MESSAGE' | 'ALL';
+  assignedTo?: string | 'ME' | 'UNASSIGNED' | 'ALL';
+  currentUserId?: string;
   page?: number;
   limit?: number;
 }
@@ -33,6 +36,14 @@ export interface ModerationCaseListItem {
     details: string | null;
     reporter_alias?: string;
   };
+  latest_ai_result?: {
+    model: string;
+    risk_level: 'LOW' | 'REVIEW' | 'CRITICAL';
+    flags: string[];
+    confidence: number | null;
+    reason: string | null;
+    created_at: string;
+  } | null;
 }
 
 export async function getModerationCases(options: ModerationCasesFilterOptions = {}) {
@@ -59,6 +70,15 @@ export async function getModerationCases(options: ModerationCasesFilterOptions =
         reason,
         details,
         reporter:profiles!reports_reporter_id_fkey(alias)
+      ),
+      ai_results:moderation_ai_results(
+        id,
+        model,
+        risk_level,
+        flags,
+        confidence,
+        reason,
+        created_at
       )
     `,
     { count: 'exact' }
@@ -74,6 +94,18 @@ export async function getModerationCases(options: ModerationCasesFilterOptions =
 
   if (options.targetType && options.targetType !== 'ALL') {
     query = query.eq('target_type', options.targetType);
+  }
+
+  if (options.assignedTo && options.assignedTo !== 'ALL') {
+    if (options.assignedTo === 'UNASSIGNED') {
+      query = query.is('assigned_moderator_id', null);
+    } else if (options.assignedTo === 'ME') {
+      if (options.currentUserId) {
+        query = query.eq('assigned_moderator_id', options.currentUserId);
+      }
+    } else {
+      query = query.eq('assigned_moderator_id', options.assignedTo);
+    }
   }
 
   const { data, error, count } = await query;
@@ -92,6 +124,12 @@ export async function getModerationCases(options: ModerationCasesFilterOptions =
   const formattedCases: ModerationCaseListItem[] = (data || []).map((c: any) => {
     const reports = c.reports || [];
     const firstReport = reports[0];
+    const aiResults = c.ai_results || [];
+    const sortedAi = [...aiResults].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    const latestAi = sortedAi[0] || null;
+
     return {
       id: c.id,
       report_id: c.report_id,
@@ -112,10 +150,28 @@ export async function getModerationCases(options: ModerationCasesFilterOptions =
             reporter_alias: firstReport.reporter?.alias,
           }
         : undefined,
+      latest_ai_result: latestAi
+        ? {
+            model: latestAi.model,
+            risk_level: latestAi.risk_level,
+            flags: latestAi.flags || [],
+            confidence: latestAi.confidence,
+            reason: latestAi.reason,
+            created_at: latestAi.created_at,
+          }
+        : null,
     };
   });
 
-  formattedCases.sort((a, b) => {
+  // Filter by riskLevel if provided
+  let filteredList = formattedCases;
+  if (options.riskLevel && options.riskLevel !== 'ALL') {
+    filteredList = filteredList.filter(
+      (c) => c.priority === options.riskLevel || c.latest_ai_result?.risk_level === options.riskLevel
+    );
+  }
+
+  filteredList.sort((a, b) => {
     const weightA = priorityWeight[a.priority] || 4;
     const weightB = priorityWeight[b.priority] || 4;
     if (weightA !== weightB) {
@@ -124,11 +180,11 @@ export async function getModerationCases(options: ModerationCasesFilterOptions =
     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   });
 
-  const paginatedCases = formattedCases.slice(offset, offset + limit);
+  const paginatedCases = filteredList.slice(offset, offset + limit);
 
   return {
     cases: paginatedCases,
-    total: count ?? formattedCases.length,
+    total: count ?? filteredList.length,
   };
 }
 

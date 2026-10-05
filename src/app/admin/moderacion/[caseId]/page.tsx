@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { redirect, notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getModerationCaseDetail } from '@/lib/services/moderation';
 import { ModerationCaseDetailView } from '@/components/admin/ModerationCaseDetailView';
@@ -21,7 +21,14 @@ export default async function ModerationCaseDetailPage({ params }: CasePageProps
     data: { user },
   } = await supabase.auth.getUser();
 
-  const currentUserId = user?.id || '';
+  if (!user) {
+    redirect('/login');
+  }
+
+  const { data: isMod } = await supabase.rpc('is_moderator', { target_user_id: user.id });
+  if (!isMod) {
+    notFound();
+  }
 
   const detail = await getModerationCaseDetail(caseId);
 
@@ -29,5 +36,5 @@ export default async function ModerationCaseDetailPage({ params }: CasePageProps
     notFound();
   }
 
-  return <ModerationCaseDetailView currentUserId={currentUserId} detail={detail} />;
+  return <ModerationCaseDetailView currentUserId={user.id} detail={detail} />;
 }

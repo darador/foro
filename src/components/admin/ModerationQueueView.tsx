@@ -2,28 +2,59 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Shield, AlertTriangle, Clock, CheckCircle2, Filter, Eye, FileText, MessageSquare, User, Mail } from 'lucide-react';
+import {
+  Shield,
+  AlertTriangle,
+  Clock,
+  CheckCircle2,
+  Filter,
+  Eye,
+  FileText,
+  MessageSquare,
+  User,
+  Mail,
+  Sparkles,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import type { ModerationPriority, ReportStatus } from '@/types/database';
 import type { ModerationCaseListItem } from '@/lib/services/moderation';
 
 interface ModerationQueueViewProps {
   initialCases: ModerationCaseListItem[];
   totalCases: number;
+  currentUserId?: string;
 }
 
-export function ModerationQueueView({ initialCases, totalCases }: ModerationQueueViewProps) {
-  const [cases, setCases] = useState<ModerationCaseListItem[]>(initialCases);
+export function ModerationQueueView({ initialCases, totalCases, currentUserId }: ModerationQueueViewProps) {
+  const [cases] = useState<ModerationCaseListItem[]>(initialCases);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
+  const [riskLevelFilter, setRiskLevelFilter] = useState<string>('ALL');
   const [targetTypeFilter, setTargetTypeFilter] = useState<string>('ALL');
+  const [assignedToFilter, setAssignedToFilter] = useState<string>('ALL');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const pageSize = 10;
 
   // Filter cases in client state for fast responsive UI
   const filteredCases = cases.filter((c) => {
     if (statusFilter !== 'ALL' && c.status !== statusFilter) return false;
     if (priorityFilter !== 'ALL' && c.priority !== priorityFilter) return false;
     if (targetTypeFilter !== 'ALL' && c.target_type !== targetTypeFilter) return false;
+    if (assignedToFilter !== 'ALL') {
+      if (assignedToFilter === 'UNASSIGNED' && c.assigned_moderator_id !== null) return false;
+      if (assignedToFilter === 'ME' && currentUserId && c.assigned_moderator_id !== currentUserId) return false;
+    }
+    if (riskLevelFilter !== 'ALL') {
+      const aiRisk = c.latest_ai_result?.risk_level;
+      if (c.priority !== riskLevelFilter && aiRisk !== riskLevelFilter) return false;
+    }
     return true;
   });
+
+  const totalFiltered = filteredCases.length;
+  const totalPages = Math.ceil(totalFiltered / pageSize) || 1;
+  const paginatedCases = filteredCases.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const criticalCount = cases.filter((c) => c.priority === 'CRITICAL' && c.status !== 'RESOLVED').length;
   const openCount = cases.filter((c) => c.status === 'OPEN').length;
@@ -143,13 +174,16 @@ export function ModerationQueueView({ initialCases, totalCases }: ModerationQueu
           Filtros de Búsqueda
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {/* Status Filter */}
           <div>
             <label className="block text-xs text-zinc-400 mb-1 font-medium">Estado del Caso</label>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-rose-500"
             >
               <option value="ALL">Todos los estados</option>
@@ -163,13 +197,34 @@ export function ModerationQueueView({ initialCases, totalCases }: ModerationQueu
 
           {/* Priority Filter */}
           <div>
-            <label className="block text-xs text-zinc-400 mb-1 font-medium">Prioridad de Riesgo</label>
+            <label className="block text-xs text-zinc-400 mb-1 font-medium">Prioridad</label>
             <select
               value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
+              onChange={(e) => {
+                setPriorityFilter(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-rose-500"
             >
               <option value="ALL">Todas las prioridades</option>
+              <option value="CRITICAL">Crítico (CRITICAL)</option>
+              <option value="REVIEW">Revisión (REVIEW)</option>
+              <option value="LOW">Bajo (LOW)</option>
+            </select>
+          </div>
+
+          {/* Risk Level Filter (AI / Priority) */}
+          <div>
+            <label className="block text-xs text-zinc-400 mb-1 font-medium">Nivel de Riesgo (IA)</label>
+            <select
+              value={riskLevelFilter}
+              onChange={(e) => {
+                setRiskLevelFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-rose-500"
+            >
+              <option value="ALL">Todos los riesgos</option>
               <option value="CRITICAL">Crítico (CRITICAL)</option>
               <option value="REVIEW">Revisión (REVIEW)</option>
               <option value="LOW">Bajo (LOW)</option>
@@ -181,14 +236,34 @@ export function ModerationQueueView({ initialCases, totalCases }: ModerationQueu
             <label className="block text-xs text-zinc-400 mb-1 font-medium">Tipo de Entidad</label>
             <select
               value={targetTypeFilter}
-              onChange={(e) => setTargetTypeFilter(e.target.value)}
+              onChange={(e) => {
+                setTargetTypeFilter(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-rose-500"
             >
               <option value="ALL">Todas las entidades</option>
               <option value="POST">Publicación (POST)</option>
               <option value="COMMENT">Comentario (COMMENT)</option>
-              <option value="PROFILE">Perfil de Usuario (PROFILE)</option>
-              <option value="MESSAGE">Mensaje Privado (MESSAGE)</option>
+              <option value="PROFILE">Perfil (PROFILE)</option>
+              <option value="MESSAGE">Mensaje (MESSAGE)</option>
+            </select>
+          </div>
+
+          {/* Assigned To Filter */}
+          <div>
+            <label className="block text-xs text-zinc-400 mb-1 font-medium">Asignación</label>
+            <select
+              value={assignedToFilter}
+              onChange={(e) => {
+                setAssignedToFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-rose-500"
+            >
+              <option value="ALL">Todos</option>
+              <option value="UNASSIGNED">Sin Asignar</option>
+              <option value="ME">Asignados a mí</option>
             </select>
           </div>
         </div>
@@ -196,7 +271,7 @@ export function ModerationQueueView({ initialCases, totalCases }: ModerationQueu
 
       {/* Moderation Cases List */}
       <div className="space-y-3">
-        {filteredCases.length === 0 ? (
+        {paginatedCases.length === 0 ? (
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-8 text-center">
             <Shield className="mx-auto h-8 w-8 text-zinc-600 mb-2" />
             <p className="text-sm text-zinc-400 font-medium">
@@ -204,7 +279,7 @@ export function ModerationQueueView({ initialCases, totalCases }: ModerationQueu
             </p>
           </div>
         ) : (
-          filteredCases.map((item) => (
+          paginatedCases.map((item) => (
             <div
               key={item.id}
               className={`rounded-xl border p-4 transition ${
@@ -215,13 +290,20 @@ export function ModerationQueueView({ initialCases, totalCases }: ModerationQueu
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 {/* Case Info Header */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   {getPriorityBadge(item.priority)}
                   {getStatusBadge(item.status)}
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-300">
                     {getTargetIcon(item.target_type)}
                     <span>{item.target_type || 'ENTIDAD'}</span>
                   </div>
+
+                  {item.latest_ai_result && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono bg-indigo-950/80 text-indigo-300 border border-indigo-800/60">
+                      <Sparkles className="h-3 w-3 text-indigo-400" />
+                      IA: {item.latest_ai_result.risk_level}
+                    </span>
+                  )}
                 </div>
 
                 {/* Date and Action Link */}
@@ -275,6 +357,31 @@ export function ModerationQueueView({ initialCases, totalCases }: ModerationQueu
           ))
         )}
       </div>
+
+      {/* Pagination Bar */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between border-t border-zinc-800 pt-4 text-xs text-zinc-400">
+          <div>
+            Página {currentPage} de {totalPages} ({totalFiltered} caso(s))
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 disabled:opacity-40 transition flex items-center gap-1"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" /> Anterior
+            </button>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 disabled:opacity-40 transition flex items-center gap-1"
+            >
+              Siguiente <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
