@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/client';
 import { slugify, sanitizeHtml, normalizeTag } from '@/lib/sanitize';
 import type { PostFormValues } from '@/lib/validations/post';
 import type { Database } from '@/types/database';
-import { isModerationAiEnabled } from '@/lib/services/moderation-ai';
+import { isModerationAiEnabled } from '@/lib/services/moderation-config';
 
 export async function createPost(formValues: PostFormValues, authorId: string) {
   const supabase = createClient();

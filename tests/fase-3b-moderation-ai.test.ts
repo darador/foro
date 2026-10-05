@@ -532,4 +532,77 @@ describe('FASE 3B & 3B.1 — Moderación Automática con IA Integrity & Security
       expect(await isModerationAiEnabled(mockDisabledSupabase)).toBe(false);
     });
   });
+
+  // 9. FASE 3B.8 — CLIENT / SERVER MODULE SEPARATION TESTS
+  describe('9. Fase 3B.8 Client / Server Module Separation Tests', () => {
+    const postsService = fs.readFileSync(path.join(process.cwd(), 'src/lib/services/client/posts.ts'), 'utf-8');
+    const commentsService = fs.readFileSync(path.join(process.cwd(), 'src/lib/services/client/comments.ts'), 'utf-8');
+    const configService = fs.readFileSync(path.join(process.cwd(), 'src/lib/services/moderation-config.ts'), 'utf-8');
+
+    it('Test 1 — posts.ts does NOT import moderation-ai.ts', () => {
+      expect(postsService).not.toContain("from '@/lib/services/moderation-ai'");
+      expect(postsService).toContain("from '@/lib/services/moderation-config'");
+    });
+
+    it('Test 2 — comments.ts does NOT import moderation-ai.ts', () => {
+      expect(commentsService).not.toContain("from '@/lib/services/moderation-ai'");
+      expect(commentsService).toContain("from '@/lib/services/moderation-config'");
+    });
+
+    it('Test 3 — moderation-config.ts does NOT import createAdminClient, moderation-ai, OpenAI, Gemini or service role keys', () => {
+      expect(configService).not.toContain('createAdminClient');
+      expect(configService).not.toContain('moderation-ai');
+      expect(configService).not.toContain('OpenAI');
+      expect(configService).not.toContain('Gemini');
+      expect(configService).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
+    });
+
+    it('Test 4 — moderation-config.ts queries system_config with key = MODERATION_AI_ENABLED', () => {
+      expect(configService).toContain("from('system_config')");
+      expect(configService).toContain(".eq('key', 'MODERATION_AI_ENABLED')");
+    });
+
+    it('Test 5 — moderation-config.ts DB value = true returns true', async () => {
+      const { isModerationAiEnabled } = await import('@/lib/services/moderation-config');
+      const mockSupabase = {
+        from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { value: 'true' }, error: null }) }) }) }),
+      };
+      expect(await isModerationAiEnabled(mockSupabase)).toBe(true);
+    });
+
+    it('Test 6 — moderation-config.ts DB value = false returns false', async () => {
+      const { isModerationAiEnabled } = await import('@/lib/services/moderation-config');
+      const mockSupabase = {
+        from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { value: 'false' }, error: null }) }) }) }),
+      };
+      expect(await isModerationAiEnabled(mockSupabase)).toBe(false);
+    });
+
+    it('Test 7 — moderation-config.ts DB key missing returns true (fail-safe)', async () => {
+      const { isModerationAiEnabled } = await import('@/lib/services/moderation-config');
+      const mockSupabaseMissing = {
+        from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }),
+      };
+      expect(await isModerationAiEnabled(mockSupabaseMissing)).toBe(true);
+    });
+
+    it('Test 8 — moderation-config.ts DB error returns true (fail-safe)', async () => {
+      const { isModerationAiEnabled } = await import('@/lib/services/moderation-config');
+      const mockSupabaseError = {
+        from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: new Error('Network error') }) }) }) }),
+      };
+      expect(await isModerationAiEnabled(mockSupabaseError)).toBe(true);
+    });
+
+    it('Test 9 — moderation-ai.ts operates independently server-side', () => {
+      const moderationService = fs.readFileSync(path.join(process.cwd(), 'src/lib/services/moderation-ai.ts'), 'utf-8');
+      expect(moderationService).toContain('export async function analyzeContentWithAi');
+      expect(moderationService).not.toContain("from '@/lib/services/moderation-config'");
+    });
+
+    it('Test 10 — No client services import moderation-ai.ts', () => {
+      expect(postsService).not.toContain('@/lib/services/moderation-ai');
+      expect(commentsService).not.toContain('@/lib/services/moderation-ai');
+    });
+  });
 });

@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { sanitizeHtml } from '@/lib/sanitize';
 import type { CommentFormValues } from '@/lib/validations/comment';
-import { isModerationAiEnabled } from '@/lib/services/moderation-ai';
+import { isModerationAiEnabled } from '@/lib/services/moderation-config';
 
 export async function createComment(formValues: CommentFormValues, authorId: string) {
   const supabase = createClient();
