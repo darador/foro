@@ -85,8 +85,8 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION public.moderate_post_status(UUID) FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION public.moderate_post_status(UUID) FROM anon;
-REVOKE EXECUTE ON FUNCTION public.moderate_post_status(UUID) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION public.moderate_post_status(UUID, TEXT) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.moderate_post_status(UUID, TEXT) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.moderate_post_status(UUID, TEXT) FROM authenticated;
 
-GRANT EXECUTE ON FUNCTION public.moderate_post_status(UUID) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.moderate_post_status(UUID, TEXT) TO authenticated, service_role;

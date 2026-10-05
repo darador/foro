@@ -3,6 +3,7 @@
 -- Migration: 20261004000015_fase2c31_conversation_audit_fixes.sql
 -- ============================================================================
 
+DROP POLICY IF EXISTS "Conversation members viewable by members only" ON public.conversation_members;
 -- 1. CORREGIR POLÍTICA SELECT EN CONVERSATION_MEMBERS
 -- Permite a un miembro leer los datos de todos los participantes de sus propias conversaciones,
 -- pero le impidiendo consultar o enumerar miembros de conversaciones a las que no pertenece.
