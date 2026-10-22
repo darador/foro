@@ -138,12 +138,14 @@ describe('FASE 3B & 3B.1 — Moderación Automática con IA Integrity & Security
       expect(commentsService).toContain("status: isAiEnabled ? 'PENDING_REVIEW' : 'PUBLISHED'");
     });
 
-    it('verifies updatePost and updateComment reset status to PENDING_REVIEW on edition when AI is enabled', () => {
+    it('verifies updatePost and updateComment preserve status on edition (respecting 000008 column grants) and trigger server-side AI moderation', () => {
       const postsService = fs.readFileSync(path.join(process.cwd(), 'src/lib/services/client/posts.ts'), 'utf-8');
       const commentsService = fs.readFileSync(path.join(process.cwd(), 'src/lib/services/client/comments.ts'), 'utf-8');
 
-      expect(postsService).toContain("updateData.status = 'PENDING_REVIEW'");
-      expect(commentsService).toContain("updateData.status = 'PENDING_REVIEW'");
+      expect(postsService).not.toContain("updateData.status =");
+      expect(commentsService).not.toContain("updateData.status =");
+      expect(postsService).toContain('runAiContentModerationAction');
+      expect(commentsService).toContain('runAiContentModerationAction');
     });
 
     it('verifies analyzeContentWithAi updates posts and comments status to PUBLISHED on LOW risk', () => {

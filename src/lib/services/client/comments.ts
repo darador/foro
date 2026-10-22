@@ -52,13 +52,16 @@ export async function createComment(formValues: CommentFormValues, authorId: str
     throw new Error(error?.message || 'Error al publicar el comentario');
   }
 
-  // Trigger server-side AI analysis asynchronously on comment creation
-  import('@/app/actions/moderation-ai').then(({ runAiContentModerationAction }) => {
-    runAiContentModerationAction({
+  // Trigger server-side AI analysis on comment creation
+  try {
+    const { runAiContentModerationAction } = await import('@/app/actions/moderation-ai');
+    await runAiContentModerationAction({
       entityType: 'COMMENT',
       entityId: comment.id,
-    }).catch((err) => console.error('AI moderation trigger error on comment creation:', err));
-  });
+    });
+  } catch (err) {
+    console.error('AI moderation trigger error on comment creation:', err);
+  }
 
   return comment;
 }
@@ -66,18 +69,15 @@ export async function createComment(formValues: CommentFormValues, authorId: str
 export async function updateComment(commentId: string, content: string, userId: string) {
   const supabase = createClient();
 
-  const isAiEnabled = await isModerationAiEnabled(supabase);
-
   const sanitizedContent = sanitizeHtml(content);
 
-  const updateData: any = {
+  // Preserve current status on author edition so already-PUBLISHED comments
+  // remain editable; server-side AI moderation (record_ai_moderation_result)
+  // transitions REVIEW -> PENDING_REVIEW and CRITICAL -> HIDDEN.
+  const updateData: { content: string; updated_at: string } = {
     content: sanitizedContent,
     updated_at: new Date().toISOString(),
   };
-
-  if (isAiEnabled) {
-    updateData.status = 'PENDING_REVIEW';
-  }
 
   const { data: updatedComment, error } = await supabase
     .from('comments')
@@ -87,31 +87,95 @@ export async function updateComment(commentId: string, content: string, userId: 
     .select()
     .single();
 
-  if (error) {
-    throw new Error(error.message);
+  if (error || !updatedComment) {
+    throw new Error(error?.message || 'Error al actualizar el comentario');
   }
 
-  // Create content version for comment edition
-  const { data: version } = await supabase
-    .from('content_versions')
-    .insert({
-      entity_type: 'COMMENT',
-      entity_id: updatedComment.id,
-      version_number: Date.now(),
-      content: updatedComment.content,
-      edited_by: userId,
-    })
-    .select('id')
-    .maybeSingle();
+  // Create sequential INTEGER content version for comment edition.
+  // The DB trigger trg_assign_content_version_number (SECURITY DEFINER + advisory lock)
+  // is the final authority on version_number, so the app does not depend on an
+  // RLS-filtered SELECT or fail the already-committed comment update if version persistence fails.
+  let versionId: string | null = null;
+  try {
+    let nextVersionNumber = 1;
+    try {
+      const { data: latestVersion, error: versionSelectError } = await supabase
+        .from('content_versions')
+        .select('version_number')
+        .eq('entity_type', 'COMMENT')
+        .eq('entity_id', updatedComment.id)
+        .order('version_number', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-  // Trigger server-side AI analysis asynchronously on comment update
-  import('@/app/actions/moderation-ai').then(({ runAiContentModerationAction }) => {
-    runAiContentModerationAction({
+      if (versionSelectError) {
+        console.warn(
+          'Non-fatal warning reading latest comment version (DB trigger will assign version_number):',
+          versionSelectError.message
+        );
+      } else if (
+        typeof latestVersion?.version_number === 'number' &&
+        Number.isInteger(latestVersion.version_number) &&
+        latestVersion.version_number >= 0 &&
+        latestVersion.version_number < 2147483647
+      ) {
+        nextVersionNumber = latestVersion.version_number + 1;
+      }
+    } catch (selectErr) {
+      console.warn(
+        'Non-fatal exception reading latest comment version (DB trigger will assign version_number):',
+        selectErr
+      );
+    }
+
+    const { data: version, error: versionInsertError } = await supabase
+      .from('content_versions')
+      .insert({
+        entity_type: 'COMMENT',
+        entity_id: updatedComment.id,
+        version_number: nextVersionNumber,
+        content: updatedComment.content,
+        edited_by: userId,
+      })
+      .select('id')
+      .maybeSingle();
+
+    if (versionInsertError) {
+      console.error(
+        '[CONTENT_VERSION_PERSISTENCE_ERROR] Non-fatal error recording comment content version:',
+        {
+          entityType: 'COMMENT',
+          entityId: updatedComment.id,
+          editedBy: userId,
+          error: versionInsertError.message,
+        }
+      );
+    } else {
+      versionId = version?.id || null;
+    }
+  } catch (versionErr) {
+    console.error(
+      '[CONTENT_VERSION_PERSISTENCE_ERROR] Non-fatal exception recording comment content version:',
+      {
+        entityType: 'COMMENT',
+        entityId: updatedComment.id,
+        editedBy: userId,
+        error: versionErr,
+      }
+    );
+  }
+
+  // Trigger server-side AI analysis on comment update (even if content_versions failed)
+  try {
+    const { runAiContentModerationAction } = await import('@/app/actions/moderation-ai');
+    await runAiContentModerationAction({
       entityType: 'COMMENT',
       entityId: updatedComment.id,
-      versionId: version?.id || null,
-    }).catch((err) => console.error('AI moderation trigger error on comment update:', err));
-  });
+      versionId,
+    });
+  } catch (err) {
+    console.error('AI moderation trigger error on comment update:', err);
+  }
 
   return updatedComment;
 }
