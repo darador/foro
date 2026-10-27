@@ -146,7 +146,7 @@ export function PostDetail({ post, user }: PostDetailProps) {
       </div>
 
       {/* Main Publication Article */}
-      <article className="relative overflow-hidden rounded-3xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6 sm:p-10 shadow-sm space-y-7 transition-colors duration-200">
+      <article className="relative overflow-hidden rounded-3xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6 sm:p-10 shadow-[var(--card-shadow)] space-y-7 transition-colors duration-200">
         {/* Header Info Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--text-secondary)] border-b border-[var(--border-color)] pb-5">
           <div className="flex items-center gap-2.5 flex-wrap">

@@ -71,15 +71,15 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       {/* Hero Principal */}
       <section
         style={{ background: 'var(--hero-bg)' }}
-        className="relative overflow-hidden rounded-[20px] border border-[var(--border-color)] p-7 sm:p-9 lg:p-10 min-h-[320px] sm:min-h-[338px] flex flex-col justify-center transition-colors duration-200"
+        className="relative overflow-hidden rounded-[20px] border border-[var(--border-color)] p-7 sm:p-9 lg:p-10 min-h-[320px] sm:min-h-[338px] flex flex-col justify-center transition-colors duration-200 shadow-[var(--card-shadow)]"
       >
         <div className="relative z-10 max-w-xl space-y-4">
           {/* Subtle Top Tags */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="inline-flex items-center rounded-full border border-[var(--border-color)] bg-[var(--bg-secondary)]/80 backdrop-blur-sm px-3 py-1 text-xs font-semibold text-[var(--pink-primary)]">
+            <span className="inline-flex items-center rounded-full border border-[var(--border-color)] bg-[var(--badge-bg)] px-3 py-1 text-xs font-semibold text-[var(--pink-primary)]">
               Comunidad Adulta 18+
             </span>
-            <span className="inline-flex items-center rounded-full border border-[var(--border-color)] bg-[var(--bg-secondary)]/80 backdrop-blur-sm px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
+            <span className="inline-flex items-center rounded-full border border-[var(--border-color)] bg-[var(--bg-card)]/80 backdrop-blur-sm px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
               Privacidad & Consentimiento
             </span>
           </div>
@@ -110,7 +110,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
             <Link
               href="/registro"
-              className="inline-flex items-center gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] px-5 py-3 text-sm font-medium text-[var(--text-primary)] hover:border-[var(--pink-primary)] transition active:scale-[0.98]"
+              className="inline-flex items-center gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--pink-primary)] shadow-sm transition active:scale-[0.98]"
             >
               <EyeOff className="h-4 w-4 text-[var(--text-muted)]" />
               <span>Crear mi identidad anónima</span>
@@ -140,13 +140,13 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             <Link
               key={cat.slug}
               href={`/explorar?categoria=${cat.slug}`}
-              className="group rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-card)] p-3.5 hover:border-[var(--pink-primary)] hover:shadow-sm transition-all duration-150 flex flex-col justify-between"
+              className="group rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-card)] p-3.5 hover:border-[var(--violet-primary)]/50 hover:bg-[var(--bg-secondary)] shadow-[var(--card-shadow)] transition-all duration-150 flex flex-col justify-between"
             >
               <div>
                 <span className="text-sm font-bold text-[var(--text-primary)] group-hover:text-[var(--pink-primary)] transition">
                   {cat.name}
                 </span>
-                <p className="text-xs text-[var(--text-muted)] truncate mt-1">
+                <p className="text-xs text-[var(--text-secondary)] truncate mt-1">
                   {cat.desc}
                 </p>
               </div>
@@ -206,7 +206,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
           {/* Posts List */}
           {posts.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--bg-card)] p-10 text-center space-y-3.5">
+            <div className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--bg-card)] p-10 text-center space-y-3.5 shadow-[var(--card-shadow)]">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--bg-secondary)] text-[var(--text-muted)]">
                 <MessageSquare className="h-6 w-6" />
               </div>
@@ -238,7 +238,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         {/* Right Column: Sidebar (32%) */}
         <div className="lg:col-span-4 space-y-5">
           {/* Card: Espacio Seguro & Privado */}
-          <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5 sm:p-6 space-y-4 shadow-sm transition-colors duration-200">
+          <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5 sm:p-6 space-y-4 shadow-[var(--card-shadow)] transition-colors duration-200">
             <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
               <Shield className="h-5 w-5 text-[var(--pink-primary)]" />
               <span>Espacio Seguro & Privado</span>
@@ -256,7 +256,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 </div>
                 <div>
                   <h4 className="text-xs font-semibold text-[var(--text-primary)]">Email privado</h4>
-                  <p className="text-[11px] text-[var(--text-muted)] leading-tight mt-0.5">
+                  <p className="text-[11px] text-[var(--text-secondary)] leading-tight mt-0.5">
                     Tu correo nunca será visible públicamente.
                   </p>
                 </div>
@@ -269,7 +269,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 </div>
                 <div>
                   <h4 className="text-xs font-semibold text-[var(--text-primary)]">Identidad por alias</h4>
-                  <p className="text-[11px] text-[var(--text-muted)] leading-tight mt-0.5">
+                  <p className="text-[11px] text-[var(--text-secondary)] leading-tight mt-0.5">
                     Tu alias es tu identificador público.
                   </p>
                 </div>
@@ -282,7 +282,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 </div>
                 <div>
                   <h4 className="text-xs font-semibold text-[var(--text-primary)]">Consentimiento estricto</h4>
-                  <p className="text-[11px] text-[var(--text-muted)] leading-tight mt-0.5">
+                  <p className="text-[11px] text-[var(--text-secondary)] leading-tight mt-0.5">
                     Cada persona decide qué compartir y con quién.
                   </p>
                 </div>

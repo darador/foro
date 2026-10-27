@@ -3,45 +3,51 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  /* Light Mode Palette */
-  --bg-primary: #F7F7FA;
+  /* Premium Community UI — Soft Lavender Editorial (Light Mode) */
+  --bg-primary: #F1EFF5;
   --bg-nav: #FFFFFF;
-  --bg-card: #FFFFFF;
-  --bg-secondary: #F1F1F5;
-  --border-color: #E4E4EA;
-  --text-primary: #18181B;
-  --text-secondary: #52525B;
-  --text-muted: #71717A;
-  --pink-primary: #BE185D;
-  --violet-primary: #6D28D9;
+  --bg-card: #FFFEFF;
+  --bg-secondary: #F7F3FA;
+  --border-color: #E3DDE9;
+  --border-secondary: #EBE6F0;
+  --text-primary: #211B29;
+  --text-secondary: #62596C;
+  --text-muted: #777080;
+  --pink-primary: #C52D72;
+  --violet-primary: #783CE0;
   --pink-dark: #9D174D;
-  --hero-bg: radial-gradient(ellipse at 80% 20%, rgba(190, 24, 93, 0.08) 0%, rgba(109, 40, 217, 0.08) 35%, #FFFFFF 85%);
-  --btn-gradient-from: #BE185D;
-  --btn-gradient-to: #6D28D9;
-  --scrollbar-thumb: #D4D4D8;
-  --scrollbar-track: #F7F7FA;
-  --selection-bg: #BE185D;
+  --badge-bg: #F8EAF2;
+  --selection-bg: #F0E7FC;
+  --hero-bg: radial-gradient(ellipse at 15% 40%, rgba(247, 243, 250, 0.95) 0%, rgba(240, 232, 247, 0.7) 50%, transparent 80%), radial-gradient(circle at 85% 15%, rgba(197, 45, 114, 0.11) 0%, transparent 45%), radial-gradient(circle at 75% 85%, rgba(120, 60, 224, 0.09) 0%, transparent 45%), #F0E8F7;
+  --btn-gradient-from: #C52D72;
+  --btn-gradient-to: #783CE0;
+  --card-shadow: 0 2px 10px rgba(33, 27, 41, 0.04), 0 1px 3px rgba(33, 27, 41, 0.02);
+  --scrollbar-thumb: #D8D2DF;
+  --scrollbar-track: #F1EFF5;
 }
 
 .dark {
-  /* Dark Mode Palette */
+  /* Dark Mode Palette - EXACTLY PRESERVED */
   --bg-primary: #09090B;
   --bg-nav: #09090B;
   --bg-card: #111113;
   --bg-secondary: #18181B;
   --border-color: #2B2B32;
+  --border-secondary: #2B2B32;
   --text-primary: #F5F5F7;
   --text-secondary: #A1A1AA;
   --text-muted: #71717A;
   --pink-primary: #E879A8;
   --violet-primary: #8B5CF6;
   --pink-dark: #93345D;
+  --badge-bg: rgba(232, 121, 168, 0.12);
+  --selection-bg: #93345D;
   --hero-bg: radial-gradient(ellipse at 80% 20%, rgba(147, 52, 93, 0.22) 0%, rgba(139, 92, 246, 0.15) 35%, #111113 85%);
   --btn-gradient-from: #E879A8;
   --btn-gradient-to: #8B5CF6;
+  --card-shadow: none;
   --scrollbar-thumb: #2B2B32;
   --scrollbar-track: #09090B;
-  --selection-bg: #93345D;
 }
 
 @theme {
@@ -50,6 +56,7 @@
   --color-bg-card: var(--bg-card);
   --color-bg-secondary: var(--bg-secondary);
   --color-border-color: var(--border-color);
+  --color-border-secondary: var(--border-secondary);
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-muted: var(--text-muted);
@@ -87,6 +94,9 @@ body {
 /* Selection highlight */
 ::selection {
   background-color: var(--selection-bg);
+  color: var(--text-primary);
+}
+.dark ::selection {
   color: #ffffff;
 }
 

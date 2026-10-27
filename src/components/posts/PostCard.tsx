@@ -39,15 +39,15 @@ export function PostCard({ post }: PostCardProps) {
   const typeConfig = {
     EXPERIENCE: {
       label: 'Experiencia',
-      badge: 'border-[var(--pink-primary)]/40 bg-[var(--pink-primary)]/10 text-[var(--pink-primary)]',
+      badge: 'border-[var(--pink-primary)]/30 bg-[var(--badge-bg)] text-[var(--pink-primary)]',
     },
     QUESTION: {
       label: 'Pregunta',
-      badge: 'border-[var(--violet-primary)]/40 bg-[var(--violet-primary)]/10 text-[var(--violet-primary)]',
+      badge: 'border-[var(--violet-primary)]/30 bg-[var(--selection-bg)] text-[var(--violet-primary)]',
     },
     CONFESSION: {
       label: 'Confesión',
-      badge: 'border-[var(--pink-dark)]/40 bg-[var(--pink-dark)]/10 text-[var(--pink-dark)]',
+      badge: 'border-[var(--pink-dark)]/30 bg-[var(--badge-bg)] text-[var(--pink-dark)]',
     },
   };
 
@@ -55,12 +55,12 @@ export function PostCard({ post }: PostCardProps) {
   const authorInitial = post.author?.alias ? post.author.alias[0].toUpperCase() : 'A';
 
   return (
-    <article className="group relative rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 sm:p-5 transition-all duration-200 hover:border-[var(--pink-primary)] hover:shadow-sm">
+    <article className="group relative rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 sm:p-5 transition-all duration-200 hover:border-[var(--pink-primary)] shadow-[var(--card-shadow)]">
       {/* Header Info */}
       <div className="flex flex-wrap items-center justify-between gap-2.5 text-xs text-[var(--text-secondary)] mb-3">
         <div className="flex items-center gap-2 flex-wrap">
           {/* Post Type Badge */}
-          <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium tracking-wide ${currentType.badge}`}>
+          <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold tracking-wide ${currentType.badge}`}>
             {currentType.label}
           </span>
 
@@ -113,7 +113,7 @@ export function PostCard({ post }: PostCardProps) {
             <Link
               key={tag.slug}
               href={`/t/${tag.slug}`}
-              className="text-[11px] text-[var(--text-muted)] hover:text-[var(--pink-primary)] transition bg-[var(--bg-secondary)] border border-[var(--border-color)] px-2 py-0.5 rounded-md"
+              className="text-[11px] text-[var(--text-secondary)] hover:text-[var(--pink-primary)] transition bg-[var(--bg-secondary)] border border-[var(--border-color)] px-2.5 py-0.5 rounded-md"
             >
               #{tag.name}
             </Link>
@@ -127,13 +127,13 @@ export function PostCard({ post }: PostCardProps) {
           <span className="inline-flex items-center gap-1.5 font-medium text-[var(--pink-primary)]">
             <span className="text-sm">🔥</span>
             <strong className="text-[var(--text-primary)]">{post.reactions_count}</strong>
-            <span className="hidden sm:inline text-[var(--text-muted)]">Me interesa</span>
+            <span className="hidden sm:inline text-[var(--text-secondary)]">Me interesa</span>
           </span>
           <Link
             href={`/p/${post.slug}#comentarios`}
-            className="inline-flex items-center gap-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition"
+            className="inline-flex items-center gap-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition"
           >
-            <MessageSquare className="h-3.5 w-3.5" />
+            <MessageSquare className="h-3.5 w-3.5 text-[var(--text-muted)]" />
             <strong className="text-[var(--text-primary)]">{post.comments_count}</strong>
             <span className="hidden sm:inline">comentarios</span>
           </Link>

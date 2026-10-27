@@ -131,7 +131,7 @@ export function Navbar({ user }: NavbarProps) {
               </Link>
               <Link
                 href="/registro"
-                className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-[var(--text-primary)] hover:border-[var(--pink-primary)] transition shadow-sm"
+                className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--pink-primary)] hover:bg-[var(--bg-secondary)] transition shadow-sm"
               >
                 Registrarse
               </Link>
