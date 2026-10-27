@@ -40,9 +40,9 @@ export default async function RootLayout({
 
   return (
     <html lang="es" className="dark">
-      <body className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100 antialiased selection:bg-indigo-600 selection:text-white">
+      <body className="flex min-h-screen flex-col bg-[#09090b] text-[#f5f2f5] antialiased selection:bg-[#852d4c] selection:text-white">
         <Navbar user={userProfile} />
-        <main className="flex-1 pb-20 md:pb-8">{children}</main>
+        <main className="flex-1 pb-20 md:pb-12">{children}</main>
         <Footer />
         <MobileNav />
       </body>

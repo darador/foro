@@ -17,7 +17,7 @@ export function MobileNav() {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-800 bg-zinc-950/95 backdrop-blur-lg md:hidden">
+    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#2A2930] bg-[#09090B]/95 backdrop-blur-lg md:hidden">
       <nav className="flex h-16 items-center justify-around px-2">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -28,12 +28,12 @@ export function MobileNav() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex flex-col items-center justify-center -mt-4"
+                className="flex flex-col items-center justify-center -mt-5"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-900/40 hover:bg-indigo-500 transition">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-r from-[#852D4C] to-[#7553FF] text-white shadow-lg shadow-[#852D4C]/30 hover:scale-105 transition-transform">
                   <Icon className="h-6 w-6" />
                 </div>
-                <span className="mt-1 text-[10px] font-medium text-zinc-400">
+                <span className="mt-1 text-[10px] font-medium text-[#AAA4B0]">
                   {item.label}
                 </span>
               </Link>
@@ -46,7 +46,7 @@ export function MobileNav() {
               href={item.href}
               className={cn(
                 'flex flex-col items-center justify-center w-12 h-12 rounded-lg transition-colors',
-                isActive ? 'text-indigo-400' : 'text-zinc-400 hover:text-zinc-200'
+                isActive ? 'text-[#967EFF]' : 'text-[#726D7A] hover:text-[#AAA4B0]'
               )}
             >
               <Icon className="h-5 w-5" />

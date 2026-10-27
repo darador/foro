@@ -38,14 +38,14 @@ export function FollowButton({ postId, initialFollowed = false, user }: FollowBu
     <button
       onClick={handleClick}
       disabled={loading}
-      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+      className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition duration-150 ${
         followed
-          ? 'border-purple-500/50 bg-purple-500/10 text-purple-300'
-          : 'border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
+          ? 'border-[#967EFF]/60 bg-[#7553FF]/20 text-[#E0D7FF] shadow-sm'
+          : 'border-[#2A2930] bg-[#18181D] text-[#AAA4B0] hover:border-[#383740] hover:text-[#F5F2F5]'
       }`}
       title={followed ? 'Dejar de seguir esta publicación' : 'Seguir publicación para recibir novedades'}
     >
-      <Bell className={`h-3.5 w-3.5 ${followed ? 'fill-purple-400 text-purple-400' : ''}`} />
+      <Bell className={`h-3.5 w-3.5 ${followed ? 'fill-[#967EFF] text-[#967EFF]' : ''}`} />
       <span>{followed ? 'Siguiendo' : 'Seguir'}</span>
     </button>
   );

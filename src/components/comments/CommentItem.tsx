@@ -61,23 +61,28 @@ export function CommentItem({ comment, user, onCommentUpdated }: CommentItemProp
 
   if (isDeleted) {
     return (
-      <div className="rounded-lg border border-zinc-800/60 bg-zinc-950/40 p-3 text-xs text-zinc-600 italic">
+      <div className="rounded-xl border border-[#2A2930] bg-[#111114]/40 p-3 text-xs text-[#726D7A] italic">
         [Comentario eliminado por el autor]
       </div>
     );
   }
 
+  const authorInitial = comment.author?.alias ? comment.author.alias[0].toUpperCase() : 'A';
+
   return (
     <div className="space-y-3">
-      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-4 space-y-2">
+      <div className="rounded-2xl border border-[#2A2930] bg-[#18181D]/80 p-4 sm:p-5 space-y-3 shadow-sm hover:border-[#383740] transition">
         {/* Author Header */}
-        <div className="flex items-center justify-between text-xs text-zinc-400">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-zinc-200">@{comment.author.alias}</span>
-            <span>•</span>
-            <span className="text-zinc-500">{formatDate(comment.created_at)}</span>
+        <div className="flex items-center justify-between text-xs text-[#AAA4B0]">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-tr from-[#571F35] to-[#7553FF] text-[10px] font-bold text-white">
+              {authorInitial}
+            </div>
+            <span className="font-semibold text-[#F5F2F5]">@{comment.author.alias}</span>
+            <span className="text-[#383740]">•</span>
+            <span className="text-[#726D7A]">{formatDate(comment.created_at)}</span>
             {comment.updated_at !== comment.created_at && (
-              <span className="text-[10px] text-zinc-500 italic">(Editado)</span>
+              <span className="text-[10px] text-[#852D4C] italic">(Editado)</span>
             )}
           </div>
 
@@ -86,7 +91,7 @@ export function CommentItem({ comment, user, onCommentUpdated }: CommentItemProp
               <>
                 <button
                   onClick={() => setIsEditing(!isEditing)}
-                  className="text-zinc-500 hover:text-zinc-300 transition"
+                  className="text-[#726D7A] hover:text-[#AAA4B0] transition p-1"
                   title="Editar"
                 >
                   <Edit3 className="h-3.5 w-3.5" />
@@ -94,7 +99,7 @@ export function CommentItem({ comment, user, onCommentUpdated }: CommentItemProp
                 <button
                   onClick={handleDelete}
                   disabled={loading}
-                  className="text-zinc-500 hover:text-red-400 transition"
+                  className="text-[#726D7A] hover:text-red-400 transition p-1"
                   title="Eliminar"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -111,45 +116,45 @@ export function CommentItem({ comment, user, onCommentUpdated }: CommentItemProp
 
         {/* Content or Edit Form */}
         {isEditing ? (
-          <form onSubmit={handleEdit} className="space-y-2 pt-1">
+          <form onSubmit={handleEdit} className="space-y-3 pt-1">
             <textarea
-              rows={2}
+              rows={3}
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-950 p-2 text-xs text-zinc-100 focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-xl border border-[#2A2930] bg-[#111114] p-3 text-xs sm:text-sm text-[#F5F2F5] focus:border-[#7553FF] focus:outline-none focus:ring-1 focus:ring-[#7553FF]"
             />
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setIsEditing(false)}
-                className="rounded border border-zinc-800 px-2 py-1 text-xs text-zinc-400"
+                className="rounded-lg border border-[#2A2930] bg-[#111114] px-3 py-1.5 text-xs text-[#AAA4B0] hover:text-[#F5F2F5]"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="rounded bg-indigo-600 px-3 py-1 text-xs font-medium text-white"
+                className="rounded-lg bg-gradient-to-r from-[#852D4C] to-[#7553FF] px-4 py-1.5 text-xs font-semibold text-white shadow"
               >
                 Guardar
               </button>
             </div>
           </form>
         ) : (
-          <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed whitespace-pre-line">
+          <p className="text-xs sm:text-sm text-[#D6D0DC] leading-relaxed whitespace-pre-line font-normal">
             {comment.content}
           </p>
         )}
 
         {/* Controls */}
-        <div className="flex items-center gap-3 pt-2 border-t border-zinc-800/40 text-xs">
+        <div className="flex items-center gap-3 pt-2.5 border-t border-[#2A2930]/60 text-xs">
           <ReactionButton targetId={comment.id} targetType="COMMENT" initialCount={0} user={user} />
 
           {/* Limit depth to 3 levels per Section 15 */}
           {comment.depth < 3 && user && (
             <button
               onClick={() => setIsReplying(!isReplying)}
-              className="inline-flex items-center gap-1 text-xs font-medium text-zinc-400 hover:text-zinc-200 transition"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-[#AAA4B0] hover:text-[#967EFF] transition"
             >
               <Reply className="h-3.5 w-3.5" />
               <span>Responder</span>
@@ -160,7 +165,7 @@ export function CommentItem({ comment, user, onCommentUpdated }: CommentItemProp
 
       {/* Reply Form */}
       {isReplying && (
-        <div className="pl-4 sm:pl-6 border-l-2 border-indigo-500/40 pt-2">
+        <div className="pl-4 sm:pl-6 border-l-2 border-[#852D4C]/50 pt-2">
           <CommentForm
             postId={comment.post_id}
             parentId={comment.id}
@@ -177,7 +182,7 @@ export function CommentItem({ comment, user, onCommentUpdated }: CommentItemProp
 
       {/* Nested Replies (Depth 1 -> 2 -> 3) */}
       {comment.replies && comment.replies.length > 0 && (
-        <div className="pl-4 sm:pl-6 border-l-2 border-zinc-800/60 space-y-3 pt-2">
+        <div className="pl-4 sm:pl-6 border-l-2 border-[#2A2930] space-y-3 pt-2">
           {comment.replies.map((reply) => (
             <CommentItem
               key={reply.id}

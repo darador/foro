@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { MessageSquare, Flame, MapPin, Bookmark, ShieldCheck } from 'lucide-react';
+import { MessageSquare, MapPin, ArrowRight, Sparkles } from 'lucide-react';
 import { formatDate, truncateText } from '@/lib/utils';
 
 interface PostCardProps {
@@ -36,62 +36,84 @@ interface PostCardProps {
 }
 
 export function PostCard({ post }: PostCardProps) {
-  const typeLabels = {
-    EXPERIENCE: { label: 'Experiencia', bg: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20' },
-    QUESTION: { label: 'Pregunta', bg: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' },
-    CONFESSION: { label: 'Confesión', bg: 'bg-purple-500/10 text-purple-300 border-purple-500/20' },
+  const typeConfig = {
+    EXPERIENCE: {
+      label: 'Experiencia',
+      badge: 'border-[#852D4C]/50 bg-[#571F35]/30 text-[#FFB6CF]',
+    },
+    QUESTION: {
+      label: 'Pregunta',
+      badge: 'border-[#7553FF]/40 bg-[#7553FF]/15 text-[#C4B5FD]',
+    },
+    CONFESSION: {
+      label: 'Confesión',
+      badge: 'border-[#9F1239]/50 bg-[#881337]/30 text-[#FECDD3]',
+    },
   };
 
-  const currentType = typeLabels[post.type] || typeLabels.EXPERIENCE;
+  const currentType = typeConfig[post.type] || typeConfig.EXPERIENCE;
+  const authorInitial = post.author?.alias ? post.author.alias[0].toUpperCase() : 'A';
 
   return (
-    <article className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6 transition hover:border-zinc-700/80 hover:bg-zinc-900/60 shadow-sm">
+    <article className="group relative rounded-2xl border border-[#2A2930] bg-[#18181D]/75 p-5 sm:p-6 transition-all duration-200 hover:border-[#852D4C]/60 hover:bg-[#18181D] hover:shadow-[0_8px_30px_rgba(87,31,53,0.12)]">
       {/* Header Info */}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400 mb-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${currentType.bg}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2.5 text-xs text-[#AAA4B0] mb-3.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Post Type Badge */}
+          <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium tracking-wide ${currentType.badge}`}>
             {currentType.label}
           </span>
+
+          {/* Category Pill */}
           <Link
             href={`/explorar?categoria=${post.category.slug}`}
-            className="rounded bg-zinc-800/80 px-2 py-0.5 font-medium text-zinc-300 hover:bg-zinc-700 transition"
+            className="rounded-md border border-[#2A2930] bg-[#111114] px-2.5 py-0.5 text-[11px] font-medium text-[#AAA4B0] hover:text-[#F5F2F5] hover:border-[#383740] transition"
           >
             {post.category.name}
           </Link>
-          <span>•</span>
-          <span className="text-zinc-300 font-medium">@{post.author.alias}</span>
-          <span>•</span>
-          <span>{formatDate(post.created_at)}</span>
+
+          <span className="text-[#383740]">•</span>
+
+          {/* Author info */}
+          <div className="flex items-center gap-1.5">
+            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-tr from-[#571F35] to-[#7553FF]/40 text-[10px] font-bold text-[#F5F2F5]">
+              {authorInitial}
+            </div>
+            <span className="text-[#F5F2F5] font-medium">@{post.author.alias}</span>
+          </div>
+
+          <span className="text-[#383740]">•</span>
+          <span className="text-[#726D7A]">{formatDate(post.created_at)}</span>
         </div>
 
         {(post.province || post.city) && (
-          <span className="flex items-center gap-1 text-[11px] text-zinc-500">
-            <MapPin className="h-3 w-3" />
+          <span className="flex items-center gap-1 text-[11px] text-[#726D7A]">
+            <MapPin className="h-3 w-3 text-[#571F35]" />
             {[post.city, post.province].filter(Boolean).join(', ')}
           </span>
         )}
       </div>
 
       {/* Title */}
-      <Link href={`/p/${post.slug}`}>
-        <h2 className="text-base sm:text-lg font-semibold text-zinc-100 hover:text-indigo-300 transition line-clamp-2">
+      <Link href={`/p/${post.slug}`} className="block">
+        <h2 className="text-base sm:text-lg font-semibold tracking-tight text-[#F5F2F5] group-hover:text-[#967EFF] transition-colors duration-150 line-clamp-2 leading-snug">
           {post.title}
         </h2>
       </Link>
 
-      {/* Extract */}
-      <p className="mt-2 text-xs sm:text-sm text-zinc-400 line-clamp-3 leading-relaxed">
+      {/* Content Extract */}
+      <p className="mt-2 text-xs sm:text-sm text-[#AAA4B0] line-clamp-3 leading-relaxed">
         {truncateText(post.content.replace(/<[^>]*>?/gm, ''), 220)}
       </p>
 
       {/* Tags */}
       {post.post_tags && post.post_tags.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        <div className="mt-3.5 flex flex-wrap gap-1.5">
           {post.post_tags.map(({ tag }) => (
             <Link
               key={tag.slug}
               href={`/t/${tag.slug}`}
-              className="text-[11px] text-zinc-400 hover:text-indigo-300 transition bg-zinc-950/60 border border-zinc-800/80 px-2 py-0.5 rounded"
+              className="text-[11px] text-[#AAA4B0] hover:text-[#967EFF] transition bg-[#111114] border border-[#2A2930] hover:border-[#383740] px-2 py-0.5 rounded-md"
             >
               #{tag.name}
             </Link>
@@ -100,22 +122,29 @@ export function PostCard({ post }: PostCardProps) {
       )}
 
       {/* Footer Metrics */}
-      <div className="mt-4 flex items-center justify-between border-t border-zinc-800/60 pt-3 text-xs text-zinc-400">
+      <div className="mt-4 flex items-center justify-between border-t border-[#2A2930]/80 pt-3.5 text-xs text-[#AAA4B0]">
         <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1 font-medium text-amber-400/90">
-            🔥 <strong className="text-zinc-200">{post.reactions_count}</strong> Me interesa
+          <span className="inline-flex items-center gap-1.5 font-medium text-[#FFB6CF]">
+            <span className="text-sm">🔥</span>
+            <strong className="text-[#F5F2F5]">{post.reactions_count}</strong>
+            <span className="hidden sm:inline text-[#AAA4B0]">Me interesa</span>
           </span>
-          <Link href={`/p/${post.slug}#comentarios`} className="flex items-center gap-1 hover:text-zinc-200 transition">
-            <MessageSquare className="h-3.5 w-3.5 text-zinc-500" />
-            <strong className="text-zinc-200">{post.comments_count}</strong> comentarios
+          <Link
+            href={`/p/${post.slug}#comentarios`}
+            className="inline-flex items-center gap-1.5 text-[#AAA4B0] hover:text-[#F5F2F5] transition"
+          >
+            <MessageSquare className="h-3.5 w-3.5 text-[#726D7A]" />
+            <strong className="text-[#F5F2F5]">{post.comments_count}</strong>
+            <span className="hidden sm:inline">comentarios</span>
           </Link>
         </div>
 
         <Link
           href={`/p/${post.slug}`}
-          className="text-[11px] font-medium text-indigo-400 hover:text-indigo-300 transition"
+          className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#967EFF] hover:text-[#B7A4FF] transition group-hover:translate-x-0.5 duration-150"
         >
-          Leer publicación →
+          <span>Leer publicación</span>
+          <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
     </article>

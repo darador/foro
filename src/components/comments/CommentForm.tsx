@@ -66,9 +66,9 @@ export function CommentForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={handleSubmit} className="space-y-3.5">
       {error && (
-        <div className="rounded border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-300">
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
           {error}
         </div>
       )}
@@ -79,16 +79,16 @@ export function CommentForm({
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder={placeholder}
-          className="w-full rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-xs sm:text-sm text-zinc-100 placeholder-zinc-600 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="w-full rounded-2xl border border-[#2A2930] bg-[#111114] p-3.5 text-xs sm:text-sm text-[#F5F2F5] placeholder-[#726D7A] focus:border-[#7553FF] focus:outline-none focus:ring-1 focus:ring-[#7553FF] leading-relaxed transition"
         />
       </div>
 
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex items-center justify-end gap-2.5">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200"
+            className="rounded-xl border border-[#2A2930] bg-[#18181D] px-3.5 py-1.5 text-xs font-medium text-[#AAA4B0] hover:text-[#F5F2F5] transition"
           >
             Cancelar
           </button>
@@ -96,10 +96,10 @@ export function CommentForm({
         <button
           type="submit"
           disabled={loading || !content.trim()}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 transition shadow disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#852D4C] to-[#7553FF] px-4 py-2 text-xs font-semibold text-white hover:from-[#9C3559] hover:to-[#8565FF] transition shadow disabled:opacity-50"
         >
           <Send className="h-3.5 w-3.5" />
-          <span>{loading ? 'Enviando...' : parentId ? 'Responder' : 'Comentar'}</span>
+          <span>{loading ? 'Enviando...' : parentId ? 'Responder' : 'Publicar comentario'}</span>
         </button>
       </div>
     </form>
