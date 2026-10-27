@@ -40,12 +40,12 @@ export function SaveButton({ postId, initialSaved = false, user }: SaveButtonPro
       disabled={loading}
       className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition duration-150 ${
         saved
-          ? 'border-[#7553FF]/60 bg-[#7553FF]/20 text-[#C4B5FD] shadow-sm'
-          : 'border-[#2A2930] bg-[#18181D] text-[#AAA4B0] hover:border-[#383740] hover:text-[#F5F2F5]'
+          ? 'border-[var(--violet-primary)] bg-[var(--violet-primary)]/15 text-[var(--violet-primary)] shadow-sm'
+          : 'border-[var(--border-color)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-[var(--border-color)] hover:text-[var(--text-primary)]'
       }`}
       title={saved ? 'Quitar de guardados' : 'Guardar publicación (Privado)'}
     >
-      <Bookmark className={`h-3.5 w-3.5 ${saved ? 'fill-[#967EFF] text-[#967EFF]' : ''}`} />
+      <Bookmark className={`h-3.5 w-3.5 ${saved ? 'fill-[var(--violet-primary)] text-[var(--violet-primary)]' : ''}`} />
       <span>{saved ? 'Guardado' : 'Guardar'}</span>
     </button>
   );

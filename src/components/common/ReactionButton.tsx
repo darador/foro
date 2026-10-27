@@ -59,13 +59,13 @@ export function ReactionButton({
       disabled={loading}
       className={`inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-xs font-medium transition duration-150 ${
         reacted
-          ? 'border-[#852D4C]/70 bg-[#571F35]/35 text-[#FFB6CF] shadow-[0_0_15px_rgba(133,45,76,0.3)]'
-          : 'border-[#2A2930] bg-[#18181D] text-[#AAA4B0] hover:border-[#852D4C]/50 hover:text-[#F5F2F5]'
+          ? 'border-[var(--pink-primary)] bg-[var(--pink-primary)]/15 text-[var(--pink-primary)] shadow-sm'
+          : 'border-[var(--border-color)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-[var(--pink-primary)] hover:text-[var(--text-primary)]'
       }`}
     >
       <span className="text-sm">🔥</span>
       <span>Me interesa</span>
-      <span className="font-bold text-[#F5F2F5] ml-0.5">{count}</span>
+      <span className="font-bold text-[var(--text-primary)] ml-0.5">{count}</span>
     </button>
   );
 }

@@ -15,19 +15,42 @@ import {
 } from 'lucide-react';
 import { getPosts } from '@/lib/services/posts';
 import { PostCard } from '@/components/posts/PostCard';
-import { createClient } from '@/lib/supabase/server';
 
 interface HomePageProps {
   searchParams: Promise<{ tab?: string }>;
 }
 
-const DEFAULT_CATEGORIES = [
-  { name: 'Fetiches', slug: 'fetiches', desc: 'Atracciones particulares y fetiches' },
-  { name: 'BDSM', slug: 'bdsm', desc: 'Dominación, sumisión y prácticas consensuadas' },
-  { name: 'Swinger', slug: 'swinger', desc: 'Estilo de vida swinger y parejas abiertas' },
-  { name: 'Parejas', slug: 'parejas', desc: 'Fantasías, dinámicas y acuerdos' },
-  { name: 'Encuentros', slug: 'encuentros', desc: 'Relatos y vivencias entre adultos' },
-  { name: 'Relatos', slug: 'otros', desc: 'Confesiones y experiencias personales' },
+const FEATURED_CATEGORIES = [
+  {
+    name: 'BDSM',
+    slug: 'bdsm',
+    desc: 'Dominación, sumisión y bondage.',
+  },
+  {
+    name: 'Encuentros',
+    slug: 'encuentros',
+    desc: 'Relatos, preguntas y vivencias.',
+  },
+  {
+    name: 'Escorts',
+    slug: 'escorts',
+    desc: 'Experiencias, preguntas y debates.',
+  },
+  {
+    name: 'Fetiches',
+    slug: 'fetiches',
+    desc: 'Conversaciones y experiencias.',
+  },
+  {
+    name: 'Lugares y eventos',
+    slug: 'lugares-y-eventos',
+    desc: 'Clubes, fiestas privadas y encuentros.',
+  },
+  {
+    name: 'Otros',
+    slug: 'otros',
+    desc: 'Otras conversaciones adultas.',
+  },
 ];
 
 export default async function HomePage({ searchParams }: HomePageProps) {
@@ -43,129 +66,114 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const currentSort = sortMap[tab] || 'trending';
   const { posts } = await getPosts({ sortBy: currentSort, limit: 20 });
 
-  // Fetch real categories from database
-  let categories = DEFAULT_CATEGORIES;
-  try {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from('categories')
-      .select('name, slug, description')
-      .order('name');
-    if (data && data.length > 0) {
-      categories = data.map((c) => ({
-        name: c.name,
-        slug: c.slug,
-        desc: c.description || '',
-      }));
-    }
-  } catch {
-    // Graceful fallback to default categories
-  }
-
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-10">
-      {/* Hero Principal: Dark Sensual Premium */}
-      <section className="relative overflow-hidden rounded-3xl border border-[#2A2930] bg-[#111114] p-7 sm:p-12 shadow-[0_20px_50px_rgba(9,9,11,0.8)]">
-        {/* Ambient Sensual Glows */}
-        <div className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-gradient-to-br from-[#852D4C]/25 to-[#7553FF]/15 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 -left-24 h-96 w-96 rounded-full bg-gradient-to-tr from-[#571F35]/30 to-transparent blur-3xl" />
-
-        <div className="relative z-10 max-w-2xl space-y-4">
-          {/* Subtle Community Badge */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#852D4C]/40 bg-[#571F35]/25 px-3 py-1 text-xs font-medium text-[#FFB6CF] backdrop-blur-sm">
-            <span className="flex h-1.5 w-1.5 rounded-full bg-[#FFB6CF] animate-pulse" />
-            <span>Comunidad Adulta 18+</span>
-            <span className="text-[#852D4C]">•</span>
-            <span className="text-[#AAA4B0]">Privacidad & Consentimiento</span>
+    <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8 space-y-9">
+      {/* Hero Principal */}
+      <section
+        style={{ background: 'var(--hero-bg)' }}
+        className="relative overflow-hidden rounded-[20px] border border-[var(--border-color)] p-7 sm:p-9 lg:p-10 min-h-[320px] sm:min-h-[338px] flex flex-col justify-center transition-colors duration-200"
+      >
+        <div className="relative z-10 max-w-xl space-y-4">
+          {/* Subtle Top Tags */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center rounded-full border border-[var(--border-color)] bg-[var(--bg-secondary)]/80 backdrop-blur-sm px-3 py-1 text-xs font-semibold text-[var(--pink-primary)]">
+              Comunidad Adulta 18+
+            </span>
+            <span className="inline-flex items-center rounded-full border border-[var(--border-color)] bg-[var(--bg-secondary)]/80 backdrop-blur-sm px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
+              Privacidad & Consentimiento
+            </span>
           </div>
 
           {/* Hero Title */}
-          <h1 className="text-3xl font-extrabold tracking-tight text-[#F5F2F5] sm:text-5xl leading-[1.15]">
+          <h1 className="text-3xl sm:text-4xl lg:text-[44px] font-extrabold tracking-tight text-[var(--text-primary)] leading-[1.12]">
             Lo que te intriga también merece{' '}
-            <span className="bg-gradient-to-r from-[#FFB6CF] via-[#D14979] to-[#967EFF] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[var(--pink-primary)] to-[var(--violet-primary)] bg-clip-text text-transparent">
               un lugar donde hablarse.
             </span>
           </h1>
 
           {/* Hero Description */}
-          <p className="text-sm sm:text-base text-[#AAA4B0] leading-relaxed max-w-xl">
+          <p className="text-sm sm:text-base text-[var(--text-secondary)] leading-relaxed max-w-[440px]">
             Un espacio para compartir experiencias, explorar intereses y conversar sin prejuicios.
             Con respeto, consentimiento y privacidad.
           </p>
 
-          {/* Hero CTAs */}
-          <div className="pt-3 flex flex-wrap items-center gap-3.5">
+          {/* Hero Action Buttons */}
+          <div className="pt-2 flex flex-wrap items-center gap-3">
             <Link
               href="/explorar"
-              className="group inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#852D4C] to-[#7553FF] px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_20px_rgba(133,45,76,0.3)] hover:from-[#9C3559] hover:to-[#8565FF] hover:shadow-[0_6px_25px_rgba(133,45,76,0.45)] transition-all duration-200"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[var(--btn-gradient-from)] to-[var(--btn-gradient-to)] px-5 py-3 text-sm font-semibold text-white shadow-md hover:opacity-95 transition active:scale-[0.98]"
             >
-              <Compass className="h-4 w-4 transition-transform group-hover:rotate-12 duration-200" />
+              <Compass className="h-4 w-4" />
               <span>Explorar la comunidad</span>
             </Link>
 
             <Link
               href="/registro"
-              className="inline-flex items-center gap-2 rounded-xl border border-[#2A2930] bg-[#18181D] px-5 py-3 text-sm font-medium text-[#F5F2F5] hover:border-[#852D4C]/60 hover:bg-[#201F26] transition-all duration-200 shadow-sm"
+              className="inline-flex items-center gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] px-5 py-3 text-sm font-medium text-[var(--text-primary)] hover:border-[var(--pink-primary)] transition active:scale-[0.98]"
             >
-              <EyeOff className="h-4 w-4 text-[#AAA4B0]" />
+              <EyeOff className="h-4 w-4 text-[var(--text-muted)]" />
               <span>Crear mi identidad anónima</span>
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Categorías Reales Destacadas */}
+      {/* Explorar por Temática */}
       <section className="space-y-3.5">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-[#AAA4B0] flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-[#967EFF]" />
-            Explorar por temática
+          <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-[var(--pink-primary)]" />
+            <span>EXPLORAR POR TEMÁTICA</span>
           </h2>
           <Link
             href="/explorar"
-            className="text-xs font-medium text-[#967EFF] hover:text-[#B7A4FF] transition flex items-center gap-1"
+            className="text-xs font-semibold text-[var(--pink-primary)] hover:underline transition flex items-center gap-1"
           >
-            <span>Ver todo</span>
-            <ArrowRight className="h-3 w-3" />
+            <span>Ver todo →</span>
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-          {categories.slice(0, 6).map((cat) => (
+        {/* 6 Category Cards in one row on Desktop */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+          {FEATURED_CATEGORIES.map((cat) => (
             <Link
               key={cat.slug}
               href={`/explorar?categoria=${cat.slug}`}
-              className="group rounded-xl border border-[#2A2930] bg-[#18181D]/70 p-3.5 hover:border-[#852D4C]/60 hover:bg-[#18181D] transition-all duration-150 flex flex-col justify-between"
+              className="group rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-card)] p-3.5 hover:border-[var(--pink-primary)] hover:shadow-sm transition-all duration-150 flex flex-col justify-between"
             >
-              <span className="text-sm font-semibold text-[#F5F2F5] group-hover:text-[#FFB6CF] transition">
-                {cat.name}
-              </span>
-              <span className="text-[11px] text-[#726D7A] line-clamp-1 mt-1">
-                {cat.desc || 'Temas del foro'}
-              </span>
+              <div>
+                <span className="text-sm font-bold text-[var(--text-primary)] group-hover:text-[var(--pink-primary)] transition">
+                  {cat.name}
+                </span>
+                <p className="text-xs text-[var(--text-muted)] truncate mt-1">
+                  {cat.desc}
+                </p>
+              </div>
             </Link>
           ))}
         </div>
       </section>
 
-      {/* Main Layout Grid */}
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        {/* Feed Column */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Feed Filter Tabs */}
-          <div className="flex items-center justify-between border-b border-[#2A2930] pb-3.5">
-            <h2 className="text-base font-semibold text-[#F5F2F5] flex items-center gap-2">
-              <Flame className="h-5 w-5 text-[#FFB6CF]" />
-              Publicaciones
+      {/* Main Content Grid: Publicaciones (68%) & Panel Lateral (32%) */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Left Column: Feed (68%) */}
+        <div className="lg:col-span-8 space-y-5">
+          {/* Feed Header & Tabs */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-color)] pb-3">
+            <h2 className="text-base sm:text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+              <Flame className="h-5 w-5 text-[var(--pink-primary)]" />
+              <span>Publicaciones</span>
             </h2>
 
-            <div className="flex items-center gap-1 rounded-xl bg-[#111114] p-1 border border-[#2A2930] text-xs font-medium">
+            {/* Segmented Filter Control */}
+            <div className="flex items-center gap-1 rounded-xl bg-[var(--bg-secondary)] p-1 border border-[var(--border-color)] text-xs font-medium">
               <Link
                 href="/?tab=trending"
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-150 ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition duration-150 ${
                   tab === 'trending' || !tab
-                    ? 'bg-gradient-to-r from-[#852D4C] to-[#7553FF] text-white shadow-sm font-semibold'
-                    : 'text-[#AAA4B0] hover:text-[#F5F2F5] hover:bg-[#18181D]'
+                    ? 'bg-gradient-to-r from-[var(--btn-gradient-from)] to-[var(--btn-gradient-to)] text-white shadow-sm font-semibold'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)]'
                 }`}
               >
                 <Flame className="h-3.5 w-3.5" />
@@ -173,10 +181,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               </Link>
               <Link
                 href="/?tab=nuevos"
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-150 ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition duration-150 ${
                   tab === 'nuevos'
-                    ? 'bg-gradient-to-r from-[#852D4C] to-[#7553FF] text-white shadow-sm font-semibold'
-                    : 'text-[#AAA4B0] hover:text-[#F5F2F5] hover:bg-[#18181D]'
+                    ? 'bg-gradient-to-r from-[var(--btn-gradient-from)] to-[var(--btn-gradient-to)] text-white shadow-sm font-semibold'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)]'
                 }`}
               >
                 <Clock className="h-3.5 w-3.5" />
@@ -184,10 +192,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               </Link>
               <Link
                 href="/?tab=comentados"
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-150 ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition duration-150 ${
                   tab === 'comentados'
-                    ? 'bg-gradient-to-r from-[#852D4C] to-[#7553FF] text-white shadow-sm font-semibold'
-                    : 'text-[#AAA4B0] hover:text-[#F5F2F5] hover:bg-[#18181D]'
+                    ? 'bg-gradient-to-r from-[var(--btn-gradient-from)] to-[var(--btn-gradient-to)] text-white shadow-sm font-semibold'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)]'
                 }`}
               >
                 <MessageCircle className="h-3.5 w-3.5" />
@@ -198,20 +206,20 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
           {/* Posts List */}
           {posts.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[#2A2930] bg-[#111114]/60 p-10 text-center space-y-3.5">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#18181D] text-[#726D7A]">
+            <div className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--bg-card)] p-10 text-center space-y-3.5">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--bg-secondary)] text-[var(--text-muted)]">
                 <MessageSquare className="h-6 w-6" />
               </div>
-              <h3 className="text-base font-semibold text-[#F5F2F5]">
+              <h3 className="text-base font-bold text-[var(--text-primary)]">
                 Aún no hay publicaciones en esta sección
               </h3>
-              <p className="text-xs text-[#AAA4B0] max-w-sm mx-auto leading-relaxed">
-                Sé la primera persona en compartir una experiencia o abrir una conversación íntima y respetuosa.
+              <p className="text-xs text-[var(--text-secondary)] max-w-sm mx-auto leading-relaxed">
+                Sé la primera persona en compartir una experiencia o abrir una conversación con respeto.
               </p>
               <div className="pt-2">
                 <Link
                   href="/publicar"
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#852D4C] to-[#7553FF] px-4 py-2 text-xs font-semibold text-white shadow hover:from-[#9C3559] hover:to-[#8565FF] transition"
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[var(--btn-gradient-from)] to-[var(--btn-gradient-to)] px-4 py-2 text-xs font-semibold text-white shadow hover:opacity-95 transition"
                 >
                   <Feather className="h-3.5 w-3.5" />
                   <span>Crear publicación</span>
@@ -227,70 +235,68 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           )}
         </div>
 
-        {/* Sidebar Column */}
-        <div className="space-y-6">
-          {/* Panel de Privacidad y Seguridad */}
-          <div className="rounded-2xl border border-[#2A2930] bg-[#111114] p-5 sm:p-6 space-y-4 shadow-sm">
-            <h3 className="text-sm font-bold text-[#F5F2F5] flex items-center gap-2">
-              <Shield className="h-4 w-4 text-[#FFB6CF]" />
-              Espacio Seguro & Privado
+        {/* Right Column: Sidebar (32%) */}
+        <div className="lg:col-span-4 space-y-5">
+          {/* Card: Espacio Seguro & Privado */}
+          <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5 sm:p-6 space-y-4 shadow-sm transition-colors duration-200">
+            <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
+              <Shield className="h-5 w-5 text-[var(--pink-primary)]" />
+              <span>Espacio Seguro & Privado</span>
             </h3>
-            <p className="text-xs text-[#AAA4B0] leading-relaxed">
-              ForoFetiche protege tu intimidad para que puedas conversar con total tranquilidad:
+
+            <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+              ForoFetiche busca proteger tu intimidad para que puedas conversar con confianza.
             </p>
 
-            <ul className="text-xs text-[#AAA4B0] space-y-2.5">
-              <li className="flex items-start gap-2.5">
-                <Lock className="h-3.5 w-3.5 text-[#967EFF] shrink-0 mt-0.5" />
-                <span>
-                  <strong className="text-[#F5F2F5]">Email 100% privado:</strong> Tu correo nunca será visible ni compartido.
-                </span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <EyeOff className="h-3.5 w-3.5 text-[#967EFF] shrink-0 mt-0.5" />
-                <span>
-                  <strong className="text-[#F5F2F5]">Identidad por alias:</strong> Tu alias es tu único identificador público.
-                </span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <HeartHandshake className="h-3.5 w-3.5 text-[#967EFF] shrink-0 mt-0.5" />
-                <span>
-                  <strong className="text-[#F5F2F5]">Consentimiento estricto:</strong> Cero tolerancia a compartir datos de contacto o material sin consentimiento.
-                </span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <Shield className="h-3.5 w-3.5 text-[#967EFF] shrink-0 mt-0.5" />
-                <span>
-                  <strong className="text-[#F5F2F5]">Exclusivo adultos:</strong> Acceso restringido únicamente a mayores de 18 años.
-                </span>
-              </li>
-            </ul>
+            <div className="space-y-3.5 pt-1">
+              {/* Item 1: Email Privado */}
+              <div className="flex items-start gap-3">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--bg-secondary)] text-[var(--pink-primary)] shrink-0 mt-0.5">
+                  <Lock className="h-4 w-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-semibold text-[var(--text-primary)]">Email privado</h4>
+                  <p className="text-[11px] text-[var(--text-muted)] leading-tight mt-0.5">
+                    Tu correo nunca será visible públicamente.
+                  </p>
+                </div>
+              </div>
 
-            <div className="pt-2 border-t border-[#2A2930] flex items-center justify-between text-[11px]">
-              <Link href="/reglas" className="text-[#967EFF] hover:text-[#B7A4FF] transition underline">
+              {/* Item 2: Identidad por Alias */}
+              <div className="flex items-start gap-3">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--bg-secondary)] text-[var(--pink-primary)] shrink-0 mt-0.5">
+                  <EyeOff className="h-4 w-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-semibold text-[var(--text-primary)]">Identidad por alias</h4>
+                  <p className="text-[11px] text-[var(--text-muted)] leading-tight mt-0.5">
+                    Tu alias es tu identificador público.
+                  </p>
+                </div>
+              </div>
+
+              {/* Item 3: Consentimiento Estricto */}
+              <div className="flex items-start gap-3">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--bg-secondary)] text-[var(--pink-primary)] shrink-0 mt-0.5">
+                  <HeartHandshake className="h-4 w-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-semibold text-[var(--text-primary)]">Consentimiento estricto</h4>
+                  <p className="text-[11px] text-[var(--text-muted)] leading-tight mt-0.5">
+                    Cada persona decide qué compartir y con quién.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-[var(--border-color)] flex items-center justify-between text-[11px]">
+              <Link href="/reglas" className="text-[var(--pink-primary)] hover:underline font-medium">
                 Reglas del foro
               </Link>
-              <Link href="/privacidad" className="text-[#967EFF] hover:text-[#B7A4FF] transition underline">
+              <Link href="/privacidad" className="text-[var(--pink-primary)] hover:underline font-medium">
                 Política de privacidad
               </Link>
             </div>
-          </div>
-
-          {/* Quick Publish Invitation Card */}
-          <div className="rounded-2xl border border-[#852D4C]/30 bg-gradient-to-b from-[#571F35]/20 to-[#111114] p-5 space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[#FFB6CF]">
-              Participá en la comunidad
-            </h4>
-            <p className="text-xs text-[#AAA4B0] leading-relaxed">
-              ¿Tenés una duda íntima o una vivencia que quieras compartir desde el anonimato?
-            </p>
-            <Link
-              href="/publicar"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#18181D] border border-[#2A2930] px-3.5 py-2.5 text-xs font-semibold text-[#F5F2F5] hover:border-[#852D4C] hover:bg-[#201F26] transition shadow-sm"
-            >
-              <Feather className="h-3.5 w-3.5 text-[#FFB6CF]" />
-              <span>Escribir una publicación</span>
-            </Link>
           </div>
         </div>
       </div>

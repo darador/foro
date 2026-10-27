@@ -3,6 +3,7 @@ import './globals.css';
 import { Navbar } from '@/components/layout/Navbar';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { Footer } from '@/components/layout/Footer';
+import { ThemeProvider } from '@/components/common/ThemeProvider';
 import { createClient } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
@@ -39,12 +40,37 @@ export default async function RootLayout({
   }
 
   return (
-    <html lang="es" className="dark">
-      <body className="flex min-h-screen flex-col bg-[#09090b] text-[#f5f2f5] antialiased selection:bg-[#852d4c] selection:text-white">
-        <Navbar user={userProfile} />
-        <main className="flex-1 pb-20 md:pb-12">{children}</main>
-        <Footer />
-        <MobileNav />
+    <html lang="es" suppressHydrationWarning className="dark">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var stored = localStorage.getItem('forofetiche-theme');
+                  var isLight = stored === 'light' || (stored === 'system' && !window.matchMedia('(prefers-color-scheme: dark)').matches);
+                  if (isLight) {
+                    document.documentElement.classList.remove('dark');
+                    document.documentElement.classList.add('light');
+                  } else {
+                    document.documentElement.classList.add('dark');
+                    document.documentElement.classList.remove('light');
+                  }
+                } catch (e) {
+                  document.documentElement.classList.add('dark');
+                }
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body className="flex min-h-screen flex-col bg-[var(--bg-primary)] text-[var(--text-primary)] antialiased transition-colors duration-150">
+        <ThemeProvider>
+          <Navbar user={userProfile} />
+          <main className="flex-1 pb-20 md:pb-12">{children}</main>
+          <Footer />
+          <MobileNav />
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -1,56 +1,98 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* Light Mode Palette */
+  --bg-primary: #F7F7FA;
+  --bg-nav: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-secondary: #F1F1F5;
+  --border-color: #E4E4EA;
+  --text-primary: #18181B;
+  --text-secondary: #52525B;
+  --text-muted: #71717A;
+  --pink-primary: #BE185D;
+  --violet-primary: #6D28D9;
+  --pink-dark: #9D174D;
+  --hero-bg: radial-gradient(ellipse at 80% 20%, rgba(190, 24, 93, 0.08) 0%, rgba(109, 40, 217, 0.08) 35%, #FFFFFF 85%);
+  --btn-gradient-from: #BE185D;
+  --btn-gradient-to: #6D28D9;
+  --scrollbar-thumb: #D4D4D8;
+  --scrollbar-track: #F7F7FA;
+  --selection-bg: #BE185D;
+}
+
+.dark {
+  /* Dark Mode Palette */
+  --bg-primary: #09090B;
+  --bg-nav: #09090B;
+  --bg-card: #111113;
+  --bg-secondary: #18181B;
+  --border-color: #2B2B32;
+  --text-primary: #F5F5F7;
+  --text-secondary: #A1A1AA;
+  --text-muted: #71717A;
+  --pink-primary: #E879A8;
+  --violet-primary: #8B5CF6;
+  --pink-dark: #93345D;
+  --hero-bg: radial-gradient(ellipse at 80% 20%, rgba(147, 52, 93, 0.22) 0%, rgba(139, 92, 246, 0.15) 35%, #111113 85%);
+  --btn-gradient-from: #E879A8;
+  --btn-gradient-to: #8B5CF6;
+  --scrollbar-thumb: #2B2B32;
+  --scrollbar-track: #09090B;
+  --selection-bg: #93345D;
+}
+
 @theme {
-  --color-brand-bg: #09090b;
-  --color-brand-secondary: #111114;
-  --color-brand-elevated: #18181d;
-  --color-brand-surface-hover: #201f26;
-  --color-brand-border: #2a2930;
-  --color-brand-border-subtle: #1e1d24;
-  --color-brand-wine-dark: #571f35;
-  --color-brand-wine: #852d4c;
-  --color-brand-wine-light: #b23d66;
-  --color-brand-violet: #7553ff;
-  --color-brand-violet-light: #967eff;
-  --color-brand-text: #f5f2f5;
-  --color-brand-text-muted: #aaa4b0;
-  --color-brand-text-dim: #726d7a;
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-nav: var(--bg-nav);
+  --color-bg-card: var(--bg-card);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-border-color: var(--border-color);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-pink-primary: var(--pink-primary);
+  --color-violet-primary: var(--violet-primary);
+  --color-pink-dark: var(--pink-dark);
 }
 
 body {
-  background-color: #09090b;
-  color: #f5f2f5;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Custom scrollbar for dark sensual aesthetic */
+/* Custom scrollbar matching active theme */
 ::-webkit-scrollbar {
   width: 7px;
   height: 7px;
 }
 ::-webkit-scrollbar-track {
-  background: #09090b;
+  background: var(--scrollbar-track);
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a2930;
+  background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #571f35;
+  background: var(--pink-dark);
 }
 
 /* Selection highlight */
 ::selection {
-  background-color: #852d4c;
+  background-color: var(--selection-bg);
   color: #ffffff;
 }
 
-/* Smooth transitions helper */
+/* Global border color default */
 * {
-  border-color: #2a2930;
+  border-color: var(--border-color);
 }
 
 @media (prefers-reduced-motion: reduce) {

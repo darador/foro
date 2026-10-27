@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Send, CornerDownRight } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { createComment } from '@/lib/services/comments';
 
 interface CommentFormProps {
@@ -68,7 +68,7 @@ export function CommentForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-3.5">
       {error && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-500">
           {error}
         </div>
       )}
@@ -79,7 +79,7 @@ export function CommentForm({
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder={placeholder}
-          className="w-full rounded-2xl border border-[#2A2930] bg-[#111114] p-3.5 text-xs sm:text-sm text-[#F5F2F5] placeholder-[#726D7A] focus:border-[#7553FF] focus:outline-none focus:ring-1 focus:ring-[#7553FF] leading-relaxed transition"
+          className="w-full rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-3.5 text-xs sm:text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--pink-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--violet-primary)] leading-relaxed transition"
         />
       </div>
 
@@ -88,7 +88,7 @@ export function CommentForm({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-xl border border-[#2A2930] bg-[#18181D] px-3.5 py-1.5 text-xs font-medium text-[#AAA4B0] hover:text-[#F5F2F5] transition"
+            className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition"
           >
             Cancelar
           </button>
@@ -96,7 +96,7 @@ export function CommentForm({
         <button
           type="submit"
           disabled={loading || !content.trim()}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#852D4C] to-[#7553FF] px-4 py-2 text-xs font-semibold text-white hover:from-[#9C3559] hover:to-[#8565FF] transition shadow disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[var(--btn-gradient-from)] to-[var(--btn-gradient-to)] px-4 py-2 text-xs font-semibold text-white hover:opacity-95 transition shadow disabled:opacity-50"
         >
           <Send className="h-3.5 w-3.5" />
           <span>{loading ? 'Enviando...' : parentId ? 'Responder' : 'Publicar comentario'}</span>
