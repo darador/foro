@@ -95,18 +95,18 @@ export default async function ExplorarPage({ searchParams }: ExplorarPageProps) 
 
       {/* Main Search Input */}
       <form action="/explorar" method="GET" className="relative">
-        <Search className="absolute left-4 top-3.5 h-5 w-5 text-zinc-500" />
+        <Search className="absolute left-4 top-3.5 h-5 w-5 text-[#777080] dark:text-zinc-500" />
         <input
           type="text"
           name="q"
           defaultValue={q}
           placeholder="Buscar publicaciones, temas, fetiches o usuarios (@alias)..."
-          className="w-full rounded-xl border border-zinc-800 bg-zinc-900/90 py-3 pl-12 pr-10 text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm transition"
+          className="w-full rounded-xl border border-[#E3DDE9] bg-[#FFFFFF] py-3 pl-12 pr-10 text-xs sm:text-sm text-[#211B29] placeholder-[#777080] focus:border-[#8B5CF6] focus:outline-none focus:ring-1 focus:ring-[#8B5CF6]/40 transition shadow-none dark:border-zinc-800 dark:bg-zinc-900/90 dark:text-zinc-100 dark:placeholder-zinc-500 dark:focus:border-indigo-500 dark:focus:ring-indigo-500 dark:shadow-sm"
         />
         {q && (
           <Link
             href={buildUrl({ q: undefined, page: 1 })}
-            className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-200 transition p-1"
+            className="absolute right-3 top-3 text-[#777080] hover:text-[#211B29] dark:text-zinc-400 dark:hover:text-zinc-200 transition p-1"
             title="Limpiar búsqueda"
           >
             <X className="h-4 w-4" />
