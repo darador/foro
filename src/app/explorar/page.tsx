@@ -138,11 +138,11 @@ export default async function ExplorarPage({ searchParams }: ExplorarPageProps) 
       )}
 
       {/* Primary Control Bar: Post Types & Sorting */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-y border-zinc-800 py-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-y border-[#E3DDE9] dark:border-zinc-800 py-4">
         {/* Type Tabs */}
         <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
-          <span className="text-zinc-500 flex items-center gap-1 mr-1">
-            <Filter className="h-3.5 w-3.5 text-zinc-400" /> Tipo:
+          <span className="text-[#62596C] dark:text-zinc-500 flex items-center gap-1 mr-1">
+            <Filter className="h-3.5 w-3.5 text-[#777080] dark:text-zinc-400" /> Tipo:
           </span>
           {[
             { id: 'ALL', label: 'Todos' },
@@ -155,10 +155,10 @@ export default async function ExplorarPage({ searchParams }: ExplorarPageProps) 
               <Link
                 key={item.id}
                 href={buildUrl({ tipo: item.id === 'ALL' ? undefined : item.id, page: 1 })}
-                className={`rounded-lg px-3 py-1.5 transition ${
+                className={`rounded-full px-3 py-1.5 transition-all duration-150 border ${
                   isActive
-                    ? 'bg-indigo-600 text-white font-semibold shadow-sm'
-                    : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
+                    ? 'bg-[#F0E7FC] border-[#8B5CF6] text-[#6D28D9] font-semibold dark:bg-indigo-600 dark:border-indigo-600 dark:text-white dark:font-semibold dark:shadow-sm'
+                    : 'bg-white border-[#E3DDE9] text-[#62596C] hover:bg-[#F7F3FA] hover:border-[#DDD6FE] hover:text-[#6D28D9] dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 dark:hover:border-zinc-700'
                 }`}
               >
                 {item.label}
@@ -169,17 +169,17 @@ export default async function ExplorarPage({ searchParams }: ExplorarPageProps) 
 
         {/* Sort Selector */}
         <div className="flex items-center gap-2 text-xs">
-          <span className="text-zinc-500 flex items-center gap-1 font-medium">
-            <SlidersHorizontal className="h-3.5 w-3.5 text-zinc-400" /> Ordenar por:
+          <span className="text-[#62596C] dark:text-zinc-500 flex items-center gap-1 font-medium">
+            <SlidersHorizontal className="h-3.5 w-3.5 text-[#777080] dark:text-zinc-400" /> Ordenar por:
           </span>
-          <div className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 p-0.5">
+          <div className="flex items-center gap-1.5 rounded-lg border border-[#E3DDE9] bg-white/70 p-1 dark:border-zinc-800 dark:bg-zinc-900 dark:p-0.5">
             {q && (
               <Link
                 href={buildUrl({ sort: 'relevance', page: 1 })}
-                className={`rounded-md px-2.5 py-1 transition ${
+                className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 border ${
                   sort === 'relevance'
-                    ? 'bg-zinc-800 text-indigo-400 font-semibold'
-                    : 'text-zinc-400 hover:text-zinc-200'
+                    ? 'bg-[#F0E7FC] border-[#8B5CF6] text-[#6D28D9] font-semibold dark:bg-zinc-800 dark:border-transparent dark:text-indigo-400 dark:font-semibold'
+                    : 'bg-white border-[#E3DDE9] text-[#62596C] hover:bg-[#F7F3FA] hover:border-[#DDD6FE] hover:text-[#6D28D9] dark:bg-transparent dark:border-transparent dark:text-zinc-400 dark:hover:text-zinc-200'
                 }`}
               >
                 Relevancia
@@ -187,30 +187,30 @@ export default async function ExplorarPage({ searchParams }: ExplorarPageProps) 
             )}
             <Link
               href={buildUrl({ sort: 'newest', page: 1 })}
-              className={`rounded-md px-2.5 py-1 transition ${
+              className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 border ${
                 sort === 'newest'
-                  ? 'bg-zinc-800 text-indigo-400 font-semibold'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-[#F0E7FC] border-[#8B5CF6] text-[#6D28D9] font-semibold dark:bg-zinc-800 dark:border-transparent dark:text-indigo-400 dark:font-semibold'
+                  : 'bg-white border-[#E3DDE9] text-[#62596C] hover:bg-[#F7F3FA] hover:border-[#DDD6FE] hover:text-[#6D28D9] dark:bg-transparent dark:border-transparent dark:text-zinc-400 dark:hover:text-zinc-200'
               }`}
             >
               Más recientes
             </Link>
             <Link
               href={buildUrl({ sort: 'most_commented', page: 1 })}
-              className={`rounded-md px-2.5 py-1 transition ${
+              className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 border ${
                 sort === 'most_commented'
-                  ? 'bg-zinc-800 text-indigo-400 font-semibold'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-[#F0E7FC] border-[#8B5CF6] text-[#6D28D9] font-semibold dark:bg-zinc-800 dark:border-transparent dark:text-indigo-400 dark:font-semibold'
+                  : 'bg-white border-[#E3DDE9] text-[#62596C] hover:bg-[#F7F3FA] hover:border-[#DDD6FE] hover:text-[#6D28D9] dark:bg-transparent dark:border-transparent dark:text-zinc-400 dark:hover:text-zinc-200'
               }`}
             >
               Más comentados
             </Link>
             <Link
               href={buildUrl({ sort: 'most_reacted', page: 1 })}
-              className={`rounded-md px-2.5 py-1 transition ${
+              className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 border ${
                 sort === 'most_reacted'
-                  ? 'bg-zinc-800 text-indigo-400 font-semibold'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-[#F0E7FC] border-[#8B5CF6] text-[#6D28D9] font-semibold dark:bg-zinc-800 dark:border-transparent dark:text-indigo-400 dark:font-semibold'
+                  : 'bg-white border-[#E3DDE9] text-[#62596C] hover:bg-[#F7F3FA] hover:border-[#DDD6FE] hover:text-[#6D28D9] dark:bg-transparent dark:border-transparent dark:text-zinc-400 dark:hover:text-zinc-200'
               }`}
             >
               Más reacciones
@@ -222,14 +222,14 @@ export default async function ExplorarPage({ searchParams }: ExplorarPageProps) 
       {/* Category Pills */}
       {categories.length > 0 && (
         <div className="space-y-2">
-          <h2 className="text-xs font-semibold text-zinc-400">Categorías</h2>
+          <h2 className="text-xs font-semibold text-[#62596C] dark:text-zinc-400">Categorías</h2>
           <div className="flex flex-wrap gap-2">
             <Link
               href={buildUrl({ categoria: undefined, page: 1 })}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all duration-150 ${
                 !categoria
-                  ? 'border-indigo-500 bg-indigo-500/10 text-indigo-300 font-semibold'
-                  : 'border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
+                  ? 'bg-[#FCE7F3] border-[#E879A8] text-[#9D174D] font-semibold dark:border-indigo-500 dark:bg-indigo-500/10 dark:text-indigo-300 dark:font-semibold'
+                  : 'bg-white border-[#E3DDE9] text-[#62596C] hover:bg-[#FDF2F8] hover:border-[#F9A8D4] hover:text-[#9D174D] dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400 dark:hover:border-zinc-700 dark:hover:text-zinc-200'
               }`}
             >
               Todas
@@ -238,10 +238,10 @@ export default async function ExplorarPage({ searchParams }: ExplorarPageProps) 
               <Link
                 key={cat.slug}
                 href={buildUrl({ categoria: cat.slug, page: 1 })}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all duration-150 ${
                   categoria === cat.slug
-                    ? 'border-indigo-500 bg-indigo-500/10 text-indigo-300 font-semibold'
-                    : 'border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
+                    ? 'bg-[#FCE7F3] border-[#E879A8] text-[#9D174D] font-semibold dark:border-indigo-500 dark:bg-indigo-500/10 dark:text-indigo-300 dark:font-semibold'
+                    : 'bg-white border-[#E3DDE9] text-[#62596C] hover:bg-[#FDF2F8] hover:border-[#F9A8D4] hover:text-[#9D174D] dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400 dark:hover:border-zinc-700 dark:hover:text-zinc-200'
                 }`}
               >
                 {cat.name}
