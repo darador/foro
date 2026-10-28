@@ -19,7 +19,7 @@ interface PostDetailProps {
     title: string;
     slug: string;
     content: string;
-    type: 'EXPERIENCE' | 'QUESTION' | 'CONFESSION';
+    type: 'EXPERIENCE' | 'QUESTION' | 'CONFESSION' | 'DEBATE';
     province?: string | null;
     city?: string | null;
     created_at: string;
@@ -71,6 +71,10 @@ export function PostDetail({ post, user }: PostDetailProps) {
     CONFESSION: {
       label: 'Confesión',
       badge: 'border-[var(--pink-dark)]/40 bg-[var(--pink-dark)]/10 text-[var(--pink-dark)]',
+    },
+    DEBATE: {
+      label: 'Debate',
+      badge: 'border-[var(--violet-primary)]/40 bg-[var(--violet-primary)]/10 text-[var(--violet-primary)]',
     },
   };
 

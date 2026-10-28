@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const postSchema = z.object({
-  type: z.enum(['EXPERIENCE', 'QUESTION', 'CONFESSION'] as const, {
+  type: z.enum(['EXPERIENCE', 'QUESTION', 'CONFESSION', 'DEBATE'] as const, {
     message: 'Debes seleccionar un tipo de publicación',
   }),
   category_id: z.string().uuid({

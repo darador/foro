@@ -3,6 +3,7 @@ import { Search, Tag, Filter, Compass, SlidersHorizontal, Users, X, ChevronLeft,
 import { searchGlobal, getPopularTags } from '@/lib/services/search';
 import { PostCard } from '@/components/posts/PostCard';
 import { ProfileSearchResultCard } from '@/components/common/ProfileSearchResultCard';
+import { LocationFilter } from '@/components/common/LocationFilter';
 import { createClient } from '@/lib/supabase/server';
 import type { PostType } from '@/types/database';
 
@@ -11,6 +12,7 @@ interface ExplorarPageProps {
     q?: string;
     tipo?: string;
     categoria?: string;
+    ubicacion?: string;
     provincia?: string;
     ciudad?: string;
     sort?: string;
@@ -18,21 +20,36 @@ interface ExplorarPageProps {
   }>;
 }
 
+const MVP_CATEGORIES = [
+  { name: 'Fetiches', slug: 'fetiches' },
+  { name: 'BDSM', slug: 'bdsm' },
+  { name: 'Encuentros', slug: 'encuentros' },
+  { name: 'Parejas', slug: 'parejas' },
+  { name: 'Swinger', slug: 'swinger' },
+  { name: 'Escorts', slug: 'escorts' },
+  { name: 'Masajes eróticos', slug: 'masajes-eroticos' },
+  { name: 'Sexo virtual', slug: 'sexo-virtual' },
+  { name: 'Lugares y eventos', slug: 'lugares-y-eventos' },
+  { name: 'Otros', slug: 'otros' },
+];
+
 export default async function ExplorarPage({ searchParams }: ExplorarPageProps) {
   const resolvedParams = await searchParams;
   const q = resolvedParams.q || '';
   const tipo = (resolvedParams.tipo as PostType | 'ALL') || 'ALL';
   const categoria = resolvedParams.categoria || '';
+  const ubicacion = resolvedParams.ubicacion || '';
   const provincia = resolvedParams.provincia || '';
   const ciudad = resolvedParams.ciudad || '';
   const sort = (resolvedParams.sort as any) || (q ? 'relevance' : 'newest');
   const currentPage = Math.max(1, parseInt(resolvedParams.page || '1', 10));
   const limit = 12;
 
-  // Execute global search
+  // Execute global search with all combined filters
   const { posts, count, profiles } = await searchGlobal(q, {
     type: tipo !== 'ALL' ? tipo : undefined,
     categorySlug: categoria || undefined,
+    location: ubicacion || undefined,
     province: provincia || undefined,
     city: ciudad || undefined,
     sortBy: sort,
@@ -40,14 +57,20 @@ export default async function ExplorarPage({ searchParams }: ExplorarPageProps) 
     limit,
   });
 
-  // Fetch Categories for Filter Bar
-  let categories: Array<{ name: string; slug: string }> = [];
+  // Fetch Categories for Filter Bar (merging with official MVP categories)
+  let categories: Array<{ name: string; slug: string }> = [...MVP_CATEGORIES];
   try {
     const supabase = await createClient();
     const { data } = await supabase.from('categories').select('name, slug').order('name');
-    if (data) categories = data;
+    if (data && data.length > 0) {
+      // Create a map to avoid duplicates and ensure all official categories are present
+      const map = new Map<string, string>();
+      MVP_CATEGORIES.forEach((c) => map.set(c.slug, c.name));
+      data.forEach((c: { name: string; slug: string }) => map.set(c.slug, c.name));
+      categories = Array.from(map.entries()).map(([slug, name]) => ({ slug, name }));
+    }
   } catch {
-    // Ignore fallback
+    // Keep fallback MVP categories
   }
 
   // Fetch Popular Tags
@@ -55,13 +78,14 @@ export default async function ExplorarPage({ searchParams }: ExplorarPageProps) 
 
   const totalPages = Math.ceil(count / limit);
 
-  // Helper to build URL query strings safely
+  // Helper to build URL query strings safely while preserving all active filters
   const buildUrl = (newParams: Record<string, string | number | undefined>) => {
     const params = new URLSearchParams();
     const merged = {
       ...(q && { q }),
       ...(tipo && tipo !== 'ALL' && { tipo }),
       ...(categoria && { categoria }),
+      ...(ubicacion && { ubicacion }),
       ...(provincia && { provincia }),
       ...(ciudad && { ciudad }),
       ...(sort && sort !== 'newest' && { sort }),
@@ -78,18 +102,18 @@ export default async function ExplorarPage({ searchParams }: ExplorarPageProps) 
     return str ? `/explorar?${str}` : '/explorar';
   };
 
-  const hasActiveFilters = Boolean(q || (tipo && tipo !== 'ALL') || categoria || provincia || ciudad);
+  const hasActiveFilters = Boolean(q || (tipo && tipo !== 'ALL') || categoria || ubicacion || provincia || ciudad);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
       {/* Page Header */}
       <div>
-        <h1 className="text-2xl font-bold text-zinc-100 flex items-center gap-2">
-          <Compass className="h-6 w-6 text-indigo-400" />
-          Explorar Comunidad
+        <h1 className="text-2xl sm:text-3xl font-bold text-[#211B29] dark:text-zinc-100 flex items-center gap-2.5">
+          <Compass className="h-6 w-6 sm:h-7 sm:w-7 text-[var(--violet-primary)] dark:text-indigo-400" />
+          Explorar comunidad
         </h1>
-        <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-          Descubre publicaciones, experiencias, confesiones, usuarios y temas tendencia.
+        <p className="text-xs sm:text-sm text-[#62596C] dark:text-zinc-400 mt-1.5">
+          Descubrí experiencias, preguntas y conversaciones de la comunidad
         </p>
       </div>
 
@@ -114,6 +138,7 @@ export default async function ExplorarPage({ searchParams }: ExplorarPageProps) 
         )}
         {tipo && tipo !== 'ALL' && <input type="hidden" name="tipo" value={tipo} />}
         {categoria && <input type="hidden" name="categoria" value={categoria} />}
+        {ubicacion && <input type="hidden" name="ubicacion" value={ubicacion} />}
         {provincia && <input type="hidden" name="provincia" value={provincia} />}
         {ciudad && <input type="hidden" name="ciudad" value={ciudad} />}
         {sort && <input type="hidden" name="sort" value={sort} />}
@@ -122,23 +147,23 @@ export default async function ExplorarPage({ searchParams }: ExplorarPageProps) 
       {/* Popular Tags */}
       {popularTags.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-zinc-500 flex items-center gap-1 font-medium mr-1">
-            <Tag className="h-3.5 w-3.5 text-indigo-400" /> Tags populares:
+          <span className="text-xs text-[#62596C] dark:text-zinc-500 flex items-center gap-1 font-medium mr-1">
+            <Tag className="h-3.5 w-3.5 text-[var(--violet-primary)] dark:text-indigo-400" /> Tags populares:
           </span>
           {popularTags.map((tag) => (
             <Link
               key={tag.slug}
               href={`/t/${encodeURIComponent(tag.slug)}`}
-              className="rounded-full border border-zinc-800 bg-zinc-900/80 px-2.5 py-1 text-[11px] font-medium text-zinc-300 hover:border-indigo-500 hover:text-indigo-300 hover:bg-zinc-800 transition"
+              className="rounded-full border border-[#E3DDE9] bg-white px-2.5 py-1 text-[11px] font-medium text-[#62596C] hover:border-[var(--violet-primary)] hover:text-[var(--violet-primary)] hover:bg-[#F7F3FA] transition dark:border-zinc-800 dark:bg-zinc-900/80 dark:text-zinc-300 dark:hover:border-indigo-500 dark:hover:text-indigo-300 dark:hover:bg-zinc-800"
             >
-              #{tag.name} <span className="text-[10px] text-zinc-500">({tag.count})</span>
+              #{tag.name} <span className="text-[10px] text-[#777080] dark:text-zinc-500">({tag.count})</span>
             </Link>
           ))}
         </div>
       )}
 
-      {/* Primary Control Bar: Post Types & Sorting */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-y border-[#E3DDE9] dark:border-zinc-800 py-4">
+      {/* Primary Control Bar: Post Types, Location & Sorting */}
+      <div className="flex flex-col gap-4 border-y border-[#E3DDE9] dark:border-zinc-800 py-4">
         {/* Type Tabs */}
         <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
           <span className="text-[#62596C] dark:text-zinc-500 flex items-center gap-1 mr-1">
@@ -149,6 +174,7 @@ export default async function ExplorarPage({ searchParams }: ExplorarPageProps) 
             { id: 'EXPERIENCE', label: 'Experiencias' },
             { id: 'QUESTION', label: 'Preguntas' },
             { id: 'CONFESSION', label: 'Confesiones' },
+            { id: 'DEBATE', label: 'Debates' },
           ].map((item) => {
             const isActive = tipo === item.id;
             return (
@@ -167,66 +193,72 @@ export default async function ExplorarPage({ searchParams }: ExplorarPageProps) 
           })}
         </div>
 
-        {/* Sort Selector */}
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-[#62596C] dark:text-zinc-500 flex items-center gap-1 font-medium">
-            <SlidersHorizontal className="h-3.5 w-3.5 text-[#777080] dark:text-zinc-400" /> Ordenar por:
-          </span>
-          <div className="flex items-center gap-1.5 rounded-lg border border-[#E3DDE9] bg-white/70 p-1 dark:border-zinc-800 dark:bg-zinc-900 dark:p-0.5">
-            {q && (
+        {/* Secondary Row: Location Filter & Sort Selector */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
+          {/* Location Filter */}
+          <LocationFilter currentLocation={ubicacion} baseUrl={buildUrl({ ubicacion: undefined, page: 1 })} />
+
+          {/* Sort Selector */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-[#62596C] dark:text-zinc-500 flex items-center gap-1 font-medium whitespace-nowrap">
+              <SlidersHorizontal className="h-3.5 w-3.5 text-[#777080] dark:text-zinc-400" /> Ordenar por:
+            </span>
+            <div className="flex items-center gap-1.5 rounded-lg border border-[#E3DDE9] bg-white/70 p-1 dark:border-zinc-800 dark:bg-zinc-900 dark:p-0.5">
+              {q && (
+                <Link
+                  href={buildUrl({ sort: 'relevance', page: 1 })}
+                  className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 border ${
+                    sort === 'relevance'
+                      ? 'bg-[#F0E7FC] border-[#8B5CF6] text-[#6D28D9] font-semibold dark:bg-zinc-800 dark:border-transparent dark:text-indigo-400 dark:font-semibold'
+                      : 'bg-white border-[#E3DDE9] text-[#62596C] hover:bg-[#F7F3FA] hover:border-[#DDD6FE] hover:text-[#6D28D9] dark:bg-transparent dark:border-transparent dark:text-zinc-400 dark:hover:text-zinc-200'
+                  }`}
+                >
+                  Relevancia
+                </Link>
+              )}
               <Link
-                href={buildUrl({ sort: 'relevance', page: 1 })}
+                href={buildUrl({ sort: 'newest', page: 1 })}
                 className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 border ${
-                  sort === 'relevance'
+                  sort === 'newest'
                     ? 'bg-[#F0E7FC] border-[#8B5CF6] text-[#6D28D9] font-semibold dark:bg-zinc-800 dark:border-transparent dark:text-indigo-400 dark:font-semibold'
                     : 'bg-white border-[#E3DDE9] text-[#62596C] hover:bg-[#F7F3FA] hover:border-[#DDD6FE] hover:text-[#6D28D9] dark:bg-transparent dark:border-transparent dark:text-zinc-400 dark:hover:text-zinc-200'
                 }`}
               >
-                Relevancia
+                Más recientes
               </Link>
-            )}
-            <Link
-              href={buildUrl({ sort: 'newest', page: 1 })}
-              className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 border ${
-                sort === 'newest'
-                  ? 'bg-[#F0E7FC] border-[#8B5CF6] text-[#6D28D9] font-semibold dark:bg-zinc-800 dark:border-transparent dark:text-indigo-400 dark:font-semibold'
-                  : 'bg-white border-[#E3DDE9] text-[#62596C] hover:bg-[#F7F3FA] hover:border-[#DDD6FE] hover:text-[#6D28D9] dark:bg-transparent dark:border-transparent dark:text-zinc-400 dark:hover:text-zinc-200'
-              }`}
-            >
-              Más recientes
-            </Link>
-            <Link
-              href={buildUrl({ sort: 'most_commented', page: 1 })}
-              className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 border ${
-                sort === 'most_commented'
-                  ? 'bg-[#F0E7FC] border-[#8B5CF6] text-[#6D28D9] font-semibold dark:bg-zinc-800 dark:border-transparent dark:text-indigo-400 dark:font-semibold'
-                  : 'bg-white border-[#E3DDE9] text-[#62596C] hover:bg-[#F7F3FA] hover:border-[#DDD6FE] hover:text-[#6D28D9] dark:bg-transparent dark:border-transparent dark:text-zinc-400 dark:hover:text-zinc-200'
-              }`}
-            >
-              Más comentados
-            </Link>
-            <Link
-              href={buildUrl({ sort: 'most_reacted', page: 1 })}
-              className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 border ${
-                sort === 'most_reacted'
-                  ? 'bg-[#F0E7FC] border-[#8B5CF6] text-[#6D28D9] font-semibold dark:bg-zinc-800 dark:border-transparent dark:text-indigo-400 dark:font-semibold'
-                  : 'bg-white border-[#E3DDE9] text-[#62596C] hover:bg-[#F7F3FA] hover:border-[#DDD6FE] hover:text-[#6D28D9] dark:bg-transparent dark:border-transparent dark:text-zinc-400 dark:hover:text-zinc-200'
-              }`}
-            >
-              Más reacciones
-            </Link>
+              <Link
+                href={buildUrl({ sort: 'most_commented', page: 1 })}
+                className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 border ${
+                  sort === 'most_commented'
+                    ? 'bg-[#F0E7FC] border-[#8B5CF6] text-[#6D28D9] font-semibold dark:bg-zinc-800 dark:border-transparent dark:text-indigo-400 dark:font-semibold'
+                    : 'bg-white border-[#E3DDE9] text-[#62596C] hover:bg-[#F7F3FA] hover:border-[#DDD6FE] hover:text-[#6D28D9] dark:bg-transparent dark:border-transparent dark:text-zinc-400 dark:hover:text-zinc-200'
+                }`}
+              >
+                Más comentados
+              </Link>
+              <Link
+                href={buildUrl({ sort: 'most_reacted', page: 1 })}
+                className={`rounded-md px-2.5 py-1 text-xs transition-all duration-150 border ${
+                  sort === 'most_reacted'
+                    ? 'bg-[#F0E7FC] border-[#8B5CF6] text-[#6D28D9] font-semibold dark:bg-zinc-800 dark:border-transparent dark:text-indigo-400 dark:font-semibold'
+                    : 'bg-white border-[#E3DDE9] text-[#62596C] hover:bg-[#F7F3FA] hover:border-[#DDD6FE] hover:text-[#6D28D9] dark:bg-transparent dark:border-transparent dark:text-zinc-400 dark:hover:text-zinc-200'
+                }`}
+              >
+                Más reacciones
+              </Link>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Category Pills */}
+      {/* Category Pills (with responsive mobile scroll) */}
       {categories.length > 0 && (
         <div className="space-y-2">
           <h2 className="text-xs font-semibold text-[#62596C] dark:text-zinc-400">Categorías</h2>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex overflow-x-auto sm:flex-wrap gap-2 pb-1.5 -mx-4 px-4 sm:mx-0 sm:px-0">
             <Link
               href={buildUrl({ categoria: undefined, page: 1 })}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all duration-150 ${
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all duration-150 whitespace-nowrap shrink-0 ${
                 !categoria
                   ? 'bg-[#FCE7F3] border-[#E879A8] text-[#9D174D] font-semibold dark:border-indigo-500 dark:bg-indigo-500/10 dark:text-indigo-300 dark:font-semibold'
                   : 'bg-white border-[#E3DDE9] text-[#62596C] hover:bg-[#FDF2F8] hover:border-[#F9A8D4] hover:text-[#9D174D] dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400 dark:hover:border-zinc-700 dark:hover:text-zinc-200'
@@ -238,7 +270,7 @@ export default async function ExplorarPage({ searchParams }: ExplorarPageProps) 
               <Link
                 key={cat.slug}
                 href={buildUrl({ categoria: cat.slug, page: 1 })}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all duration-150 ${
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all duration-150 whitespace-nowrap shrink-0 ${
                   categoria === cat.slug
                     ? 'bg-[#FCE7F3] border-[#E879A8] text-[#9D174D] font-semibold dark:border-indigo-500 dark:bg-indigo-500/10 dark:text-indigo-300 dark:font-semibold'
                     : 'bg-white border-[#E3DDE9] text-[#62596C] hover:bg-[#FDF2F8] hover:border-[#F9A8D4] hover:text-[#9D174D] dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400 dark:hover:border-zinc-700 dark:hover:text-zinc-200'
@@ -267,7 +299,7 @@ export default async function ExplorarPage({ searchParams }: ExplorarPageProps) 
 
       {/* Search Results Summary & Feed */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between text-xs text-zinc-400">
+        <div className="flex items-center justify-between text-xs text-[#62596C] dark:text-zinc-400">
           <span>
             {count} {count === 1 ? 'publicación encontrada' : 'publicaciones encontradas'}
             {q ? ` para "${q}"` : ''}
@@ -276,7 +308,7 @@ export default async function ExplorarPage({ searchParams }: ExplorarPageProps) 
           {hasActiveFilters && (
             <Link
               href="/explorar"
-              className="text-indigo-400 hover:underline flex items-center gap-1 font-medium"
+              className="text-[var(--pink-primary)] dark:text-indigo-400 hover:underline flex items-center gap-1 font-medium"
             >
               <X className="h-3.5 w-3.5" /> Limpiar filtros
             </Link>
@@ -284,23 +316,23 @@ export default async function ExplorarPage({ searchParams }: ExplorarPageProps) 
         </div>
 
         {posts.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/30 p-12 text-center text-xs text-zinc-400 space-y-4">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-zinc-800 text-zinc-500">
+          <div className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--bg-card)] p-12 text-center text-xs text-[var(--text-secondary)] space-y-4 shadow-[var(--card-shadow)]">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--bg-secondary)] text-[var(--text-muted)]">
               <Search className="h-6 w-6" />
             </div>
-            <div className="space-y-1">
-              <p className="text-sm font-semibold text-zinc-200">
-                No se encontraron publicaciones
+            <div className="space-y-1.5 max-w-md mx-auto">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">
+                Todavía no hay publicaciones con estos filtros
               </p>
-              <p className="text-zinc-500">
-                Prueba buscando con palabras clave diferentes o eliminando los filtros seleccionados.
+              <p className="text-[var(--text-secondary)]">
+                Probá con otra categoría o cambiá los criterios de búsqueda.
               </p>
             </div>
             {hasActiveFilters && (
               <div className="pt-2">
                 <Link
                   href="/explorar"
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white hover:bg-indigo-500 transition shadow"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[var(--btn-gradient-from)] to-[var(--btn-gradient-to)] px-4 py-2 text-xs font-medium text-white hover:opacity-95 transition shadow"
                 >
                   Ver todas las publicaciones
                 </Link>
@@ -318,7 +350,7 @@ export default async function ExplorarPage({ searchParams }: ExplorarPageProps) 
 
       {/* Pagination Controls */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between border-t border-zinc-800 pt-6 text-xs text-zinc-400">
+        <div className="flex items-center justify-between border-t border-[var(--border-color)] pt-6 text-xs text-[var(--text-secondary)]">
           <span>
             Página {currentPage} de {totalPages}
           </span>
@@ -326,14 +358,14 @@ export default async function ExplorarPage({ searchParams }: ExplorarPageProps) 
             {currentPage > 1 ? (
               <Link
                 href={buildUrl({ page: currentPage - 1 })}
-                className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-zinc-300 hover:border-zinc-700 hover:text-white transition"
+                className="flex items-center gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-1.5 text-[var(--text-primary)] hover:border-[var(--pink-primary)] transition"
               >
                 <ChevronLeft className="h-4 w-4" /> Anterior
               </Link>
             ) : (
               <button
                 disabled
-                className="flex items-center gap-1 rounded-lg border border-zinc-800/40 bg-zinc-950 px-3 py-1.5 text-zinc-600 cursor-not-allowed"
+                className="flex items-center gap-1 rounded-lg border border-[var(--border-color)]/40 bg-[var(--bg-secondary)]/50 px-3 py-1.5 text-[var(--text-muted)] cursor-not-allowed opacity-60"
               >
                 <ChevronLeft className="h-4 w-4" /> Anterior
               </button>
@@ -342,14 +374,14 @@ export default async function ExplorarPage({ searchParams }: ExplorarPageProps) 
             {currentPage < totalPages ? (
               <Link
                 href={buildUrl({ page: currentPage + 1 })}
-                className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-zinc-300 hover:border-zinc-700 hover:text-white transition"
+                className="flex items-center gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-1.5 text-[var(--text-primary)] hover:border-[var(--pink-primary)] transition"
               >
                 Siguiente <ChevronRight className="h-4 w-4" />
               </Link>
             ) : (
               <button
                 disabled
-                className="flex items-center gap-1 rounded-lg border border-zinc-800/40 bg-zinc-950 px-3 py-1.5 text-zinc-600 cursor-not-allowed"
+                className="flex items-center gap-1 rounded-lg border border-[var(--border-color)]/40 bg-[var(--bg-secondary)]/50 px-3 py-1.5 text-[var(--text-muted)] cursor-not-allowed opacity-60"
               >
                 Siguiente <ChevronRight className="h-4 w-4" />
               </button>

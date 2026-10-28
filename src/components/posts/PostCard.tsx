@@ -10,7 +10,7 @@ interface PostCardProps {
     title: string;
     slug: string;
     content: string;
-    type: 'EXPERIENCE' | 'QUESTION' | 'CONFESSION';
+    type: 'EXPERIENCE' | 'QUESTION' | 'CONFESSION' | 'DEBATE';
     province?: string | null;
     city?: string | null;
     created_at: string;
@@ -48,6 +48,10 @@ export function PostCard({ post }: PostCardProps) {
     CONFESSION: {
       label: 'Confesión',
       badge: 'border-[var(--pink-dark)]/30 bg-[var(--badge-bg)] text-[var(--pink-dark)]',
+    },
+    DEBATE: {
+      label: 'Debate',
+      badge: 'border-[var(--violet-primary)]/30 bg-[var(--badge-bg)] text-[var(--violet-primary)]',
     },
   };
 

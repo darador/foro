@@ -176,7 +176,7 @@ export default function PublicarPage() {
           <label className="block text-xs font-semibold text-zinc-300 mb-2">
             Tipo de publicación *
           </label>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <button
               type="button"
               onClick={() => setType('EXPERIENCE')}
@@ -209,6 +209,17 @@ export default function PublicarPage() {
               }`}
             >
               CONFESIÓN
+            </button>
+            <button
+              type="button"
+              onClick={() => setType('DEBATE')}
+              className={`rounded-lg py-2.5 text-xs font-medium border transition ${
+                type === 'DEBATE'
+                  ? 'border-violet-500 bg-violet-500/20 text-violet-300 font-semibold shadow'
+                  : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              DEBATE
             </button>
           </div>
         </div>

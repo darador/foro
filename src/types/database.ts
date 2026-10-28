@@ -8,7 +8,7 @@ export type Json =
 
 export type ProfileType = 'INDIVIDUAL' | 'COUPLE' | 'GROUP';
 export type AdminRole = 'USER' | 'MODERATOR' | 'DIRECTORY_ADMIN' | 'SUPERADMIN';
-export type PostType = 'EXPERIENCE' | 'QUESTION' | 'CONFESSION';
+export type PostType = 'EXPERIENCE' | 'QUESTION' | 'CONFESSION' | 'DEBATE';
 export type PostStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'HIDDEN' | 'DELETED';
 export type CommentStatus = 'PUBLISHED' | 'PENDING_REVIEW' | 'HIDDEN' | 'DELETED';
 export type ReportReason = 'MINOR' | 'NON_CONSENSUAL' | 'PERSONAL_DATA' | 'THREAT' | 'EXTORTION' | 'HARASSMENT' | 'SPAM' | 'OTHER';

@@ -7,6 +7,7 @@ export interface GlobalSearchOptions {
   categorySlug?: string;
   province?: string;
   city?: string;
+  location?: string;
   sortBy?: 'relevance' | 'newest' | 'most_commented' | 'most_reacted';
   page?: number;
   limit?: number;
@@ -36,6 +37,7 @@ export interface TagStats {
     EXPERIENCE: number;
     QUESTION: number;
     CONFESSION: number;
+    DEBATE: number;
   };
 }
 
@@ -117,7 +119,9 @@ export async function searchGlobal(
     `,
       { count: 'exact' }
     )
-    .eq('status', 'PUBLISHED');
+    .eq('status', 'PUBLISHED')
+    .not('title', 'ilike', '%[RUNTIME_TEST]%')
+    .not('content', 'ilike', '%[RUNTIME_TEST]%');
 
   // Filter by Type
   if (options.type && options.type !== 'ALL') {
@@ -138,12 +142,36 @@ export async function searchGlobal(
   }
 
   // Filter by Location
-  if (options.province) {
-    query = query.eq('province', options.province);
-  }
-
-  if (options.city) {
-    query = query.eq('city', options.city);
+  if (options.location && options.location !== 'Todo el país') {
+    const loc = options.location.trim();
+    if (loc === 'CABA') {
+      query = query.or('city.ilike.%CABA%,province.ilike.%CABA%');
+    } else if (loc === 'GBA Norte') {
+      query = query.or('city.ilike.%GBA Norte%,province.ilike.%GBA Norte%');
+    } else if (loc === 'GBA Sur') {
+      query = query.or('city.ilike.%GBA Sur%,province.ilike.%GBA Sur%');
+    } else if (loc === 'GBA Oeste') {
+      query = query.or('city.ilike.%GBA Oeste%,province.ilike.%GBA Oeste%');
+    } else if (loc === 'La Plata') {
+      query = query.or('city.ilike.%La Plata%,province.ilike.%La Plata%');
+    } else if (loc === 'Córdoba') {
+      query = query.or('city.ilike.%Córdoba%,city.ilike.%Cordoba%,province.ilike.%Córdoba%,province.ilike.%Cordoba%');
+    } else if (loc === 'Rosario y Santa Fe') {
+      query = query.or('city.ilike.%Rosario%,province.ilike.%Santa Fe%,city.ilike.%Santa Fe%');
+    } else if (loc === 'Mendoza') {
+      query = query.or('city.ilike.%Mendoza%,province.ilike.%Mendoza%');
+    } else if (loc === 'Otras localidades') {
+      query = query.not('province', 'is', null);
+    } else {
+      query = query.or(`city.ilike.%${loc}%,province.ilike.%${loc}%`);
+    }
+  } else {
+    if (options.province) {
+      query = query.eq('province', options.province);
+    }
+    if (options.city) {
+      query = query.eq('city', options.city);
+    }
   }
 
   // Text search filter
@@ -287,6 +315,7 @@ export async function getTagWithStats(tagInput: string): Promise<TagStats | null
     EXPERIENCE: 0,
     QUESTION: 0,
     CONFESSION: 0,
+    DEBATE: 0,
   };
 
   let totalPosts = 0;

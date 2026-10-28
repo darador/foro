@@ -39,7 +39,9 @@ export async function getPosts(options: PostFilterOptions = {}) {
         tag:tags(id, name, slug)
       )
     `, { count: 'exact' })
-    .eq('status', 'PUBLISHED');
+    .eq('status', 'PUBLISHED')
+    .not('title', 'ilike', '%[RUNTIME_TEST]%')
+    .not('content', 'ilike', '%[RUNTIME_TEST]%');
 
   if (options.type) {
     query = query.eq('type', options.type);
@@ -156,7 +158,9 @@ export async function searchPosts(searchQuery: string, options: PostFilterOption
         tag:tags(id, name, slug)
       )
     `, { count: 'exact' })
-    .eq('status', 'PUBLISHED');
+    .eq('status', 'PUBLISHED')
+    .not('title', 'ilike', '%[RUNTIME_TEST]%')
+    .not('content', 'ilike', '%[RUNTIME_TEST]%');
 
   if (searchQuery.trim()) {
     query = query.or(`title.ilike.%${searchQuery}%,content.ilike.%${searchQuery}%`);

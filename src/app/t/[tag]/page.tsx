@@ -149,6 +149,10 @@ export default async function TagPage({ params, searchParams }: TagPageProps) {
             <Heart className="h-3.5 w-3.5 text-rose-400" />
             {tagStats.countByType.CONFESSION} conf
           </span>
+          <span className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-zinc-400">
+            <MessageSquare className="h-3.5 w-3.5 text-violet-400" />
+            {tagStats.countByType.DEBATE} deb
+          </span>
         </div>
       </div>
 
@@ -164,6 +168,7 @@ export default async function TagPage({ params, searchParams }: TagPageProps) {
             { id: 'EXPERIENCE', label: 'Experiencias' },
             { id: 'QUESTION', label: 'Preguntas' },
             { id: 'CONFESSION', label: 'Confesiones' },
+            { id: 'DEBATE', label: 'Debates' },
           ].map((item) => {
             const isActive = tipo === item.id;
             return (
